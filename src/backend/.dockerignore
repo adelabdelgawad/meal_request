@@ -1,0 +1,149 @@
+# ==============================================================================
+# Backend Dockerfile - Build Context Exclusions
+# ==============================================================================
+# This file excludes unnecessary files from the Docker build context
+# Build context: src/backend/ (as specified in docker/docker-compose.yml)
+# ==============================================================================
+
+# ==============================================================================
+# Python Cache & Build Artifacts
+# ==============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ==============================================================================
+# Virtual Environments (use container's venv instead)
+# ==============================================================================
+.venv/
+venv/
+ENV/
+env/
+
+# ==============================================================================
+# IDE & Editor Files
+# ==============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ==============================================================================
+# Testing & Coverage
+# ==============================================================================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+tests/
+test_*.py
+*_test.py
+
+# ==============================================================================
+# Environment Files (mounted at runtime via docker-compose)
+# ==============================================================================
+.env
+.env.*
+!.env.example
+
+# ==============================================================================
+# Git
+# ==============================================================================
+.git/
+.gitignore
+.gitattributes
+
+# ==============================================================================
+# Docker Files (not needed inside image)
+# ==============================================================================
+Dockerfile
+Dockerfile.*
+docker-compose*.yml
+.dockerignore
+
+# ==============================================================================
+# Documentation (not needed in runtime image)
+# ==============================================================================
+*.md
+README*
+docs/
+*.txt
+!requirements.txt
+!pyproject.toml
+# ==============================================================================
+# Logs (generated at runtime, not needed in build)
+# ==============================================================================
+logs/
+*.log
+
+# ==============================================================================
+# Database Files (use external database)
+# ==============================================================================
+*.db
+*.sqlite
+*.sqlite3
+
+# ==============================================================================
+# Temporary & Analysis Files
+# ==============================================================================
+analysis/
+temp/
+tmp/
+*.tmp
+replica_reports/
+
+# ==============================================================================
+# Migration & Utility Scripts (not needed in production image)
+# ==============================================================================
+delete_database.py
+debug_*.py
+check_*.py
+convert_*.py
+complete_migration.py
+final_*.py
+fix_migration.py
+old_db_to_new_*.py
+proper_migration.py
+replace_*.py
+update_*.py
+scheduler_standalone.py
+create_admin.py
+
+# ==============================================================================
+# Init Database Scripts (only for local dev, not production)
+# ==============================================================================
+init-db/
+
+# ==============================================================================
+# What WILL be included:
+# ==============================================================================
+# ✓ app.py (main application)
+# ✓ celery_app/ (background tasks)
+# ✓ api/ (routers, schemas)
+# ✓ db/ (models, CRUD, database)
+# ✓ utils/ (helpers, middleware)
+# ✓ tasks/ (Celery tasks)
+# ✓ settings.py (configuration)
+# ✓ alembic/ (migrations - if needed)
+# ✓ pyproject.toml & uv.lock (dependencies)

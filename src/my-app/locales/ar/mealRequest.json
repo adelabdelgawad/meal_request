@@ -1,0 +1,61 @@
+{
+  "title": "إنشاء طلب وجبة",
+  "departments": {
+    "title": "الأقسام",
+    "search": "بحث...",
+    "selectAll": "اختر الكل",
+    "removeAll": "إزالة الكل",
+    "noDepartments": "لا توجد أقسام",
+    "selected": "محدد",
+    "selectDepartments": "اختر الأقسام لعرض الموظفين",
+    "depts": "الأقسام"
+  },
+  "employees": {
+    "title": "الموظفين",
+    "search": "بحث...",
+    "addSelected": "إضافة",
+    "add": "إضافة",
+    "noEmployees": "لا يوجد موظفين",
+    "available": "متاح",
+    "checked": "محدد",
+    "notePlaceholder": "ملاحظة (اختياري)",
+    "noDepartmentsSelected": "لم يتم اختيار أقسام",
+    "selectDepartmentsFirst": "اختر الأقسام لعرض الموظفين",
+    "tryDifferentSearch": "جرب بحثاً مختلفاً أو قسماً آخر"
+  },
+  "selected": {
+    "title": "المحدد",
+    "removeAll": "مسح",
+    "clear": "مسح",
+    "noSelection": "لم يتم اختيار موظفين",
+    "addFromLeft": "أضف موظفين من اللوحة اليسرى",
+    "count": "{count} موظف محدد",
+    "lunch": "غ",
+    "dinner": "ع"
+  },
+  "mealType": {
+    "title": "نوع الوجبة",
+    "lunch": "غداء",
+    "dinner": "عشاء",
+    "selectAtLeastOne": "اختر نوع وجبة واحد على الأقل"
+  },
+  "notes": {
+    "label": "ملاحظات",
+    "placeholder": "أدخل ملاحظاتك هنا..."
+  },
+  "submit": {
+    "button": "إرسال الطلب",
+    "submitting": "جاري الإرسال...",
+    "selectEmployees": "الرجاء اختيار موظف واحد على الأقل",
+    "selectMealType": "الرجاء اختيار نوع وجبة واحد على الأقل",
+    "mealsReady": "الوجبات جاهزة للإرسال",
+    "selectToSubmit": "اختر موظفاً واحداً على الأقل للإرسال"
+  },
+  "toast": {
+    "success": "تم إرسال طلب الوجبة بنجاح",
+    "error": "فشل في إرسال طلب الوجبة",
+    "employeeAdded": "تمت إضافة الموظف(ين) بنجاح",
+    "employeeRemoved": "تم إزالة الموظف من القائمة",
+    "allRemoved": "تم إزالة جميع الموظفين من القائمة"
+  }
+}

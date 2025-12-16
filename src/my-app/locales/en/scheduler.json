@@ -1,0 +1,153 @@
+{
+  "title": "Scheduled Jobs",
+  "entity": "Job",
+  "primary": "Primary",
+  "selected": "selected",
+  "noSelection": "No jobs selected",
+  "search": "Search jobs...",
+  "neverRun": "Never run",
+  "noDescription": "No description provided",
+  "schedulerStatus": "Scheduler Status",
+  "activeInstances": "Active Instances",
+  "recentExecutions": "Recent Executions",
+  "placeholders": {
+    "selectTask": "Select a task...",
+    "selectType": "Select type..."
+  },
+  "columns": {
+    "jobKey": "Job Key",
+    "name": "Name",
+    "type": "Type",
+    "schedule": "Schedule",
+    "priority": "Priority",
+    "enabled": "Enabled",
+    "nextRun": "Next Run",
+    "lastRun": "Last Run",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "filters": {
+    "type": "Job Type",
+    "allTypes": "All Types",
+    "interval": "Interval",
+    "cron": "Cron"
+  },
+  "status": {
+    "running": "Running",
+    "stopped": "Stopped",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "pending": "Pending"
+  },
+  "actions": {
+    "view": "View Job",
+    "edit": "Edit Job",
+    "delete": "Delete Job",
+    "enable": "Enable",
+    "disable": "Disable",
+    "runNow": "Run Now",
+    "running": "Running..."
+  },
+  "unsavedChanges": "Unsaved changes",
+  "confirmations": {
+    "deleteTitle": "Delete Scheduled Job",
+    "deleteMessage": "Are you sure you want to delete this scheduled job? This action cannot be undone.",
+    "triggerTitle": "Run Task Now",
+    "triggerMessage": "Are you sure you want to run \"{jobName}\" now? This will execute the task immediately.",
+    "createTitle": "Create Job",
+    "createMessage": "Are you sure you want to create this scheduled job?",
+    "updateTitle": "Save Changes",
+    "updateMessage": "Are you sure you want to save these changes?",
+    "discardTitle": "Discard Changes",
+    "discardMessage": "You have unsaved changes. Are you sure you want to close?"
+  },
+  "validation": {
+    "taskFunctionRequired": "Please select a task function",
+    "jobTypeRequired": "Please select a job type"
+  },
+  "types": {
+    "interval": "Interval",
+    "cron": "Cron"
+  },
+  "sections": {
+    "status": "Status",
+    "schedule": "Schedule",
+    "configuration": "Configuration",
+    "technical": "Technical Details"
+  },
+  "fields": {
+    "jobKey": "Job Key",
+    "nameEn": "Name (English)",
+    "nameAr": "Name (Arabic)",
+    "descriptionEn": "Description (English)",
+    "descriptionAr": "Description (Arabic)",
+    "type": "Job Type",
+    "schedule": "Schedule",
+    "nextRun": "Next Run",
+    "lastRun": "Last Run",
+    "lastStatus": "Last Run Status",
+    "enabled": "Enabled",
+    "priority": "Priority",
+    "maxInstances": "Max Instances",
+    "misfireGrace": "Misfire Grace (s)",
+    "coalesce": "Coalesce",
+    "cronExpression": "Cron Expression",
+    "function": "Function",
+    "taskFunction": "Task Function",
+    "id": "ID",
+    "days": "Days",
+    "hours": "Hours",
+    "minutes": "Minutes",
+    "seconds": "Seconds"
+  },
+  "edit": {
+    "title": "Edit Job",
+    "description": "Update the job configuration",
+    "nameSection": "Name & Description",
+    "scheduleSection": "Schedule",
+    "configSection": "Configuration",
+    "enabledHelp": "Enable or disable this job",
+    "cronHelp": "Format: minute hour day month weekday"
+  },
+  "create": {
+    "title": "Add Schedule",
+    "description": "Create a new scheduled job",
+    "button": "Add Schedule",
+    "submit": "Create Job",
+    "identifierSection": "Identifier",
+    "taskSection": "Task Function",
+    "tooltip": "Add a new scheduled job"
+  },
+  "schedule": {
+    "notConfigured": "Not configured"
+  },
+  "error": {
+    "loadJobs": "Failed to load scheduled jobs"
+  },
+  "toast": {
+    "enableSuccess": "Job enabled successfully",
+    "disableSuccess": "Job disabled successfully",
+    "triggerSuccess": "Job triggered successfully",
+    "updateSuccess": "Job updated successfully",
+    "deleteSuccess": "Job deleted successfully",
+    "createSuccess": "Job created successfully",
+    "createError": "Failed to create job",
+    "updateError": "Failed to update job",
+    "triggerError": "Failed to trigger job",
+    "deleteError": "Failed to delete job",
+    "loadError": "Failed to load options",
+    "enabledMultiple": "Successfully enabled {count} job(s)",
+    "disabledMultiple": "Successfully disabled {count} job(s)",
+    "alreadyEnabled": "Selected jobs are already enabled",
+    "alreadyDisabled": "Selected jobs are already disabled",
+    "enableError": "Failed to enable jobs",
+    "disableError": "Failed to disable jobs",
+    "statusError": "Failed to update job status"
+  },
+  "itemName": {
+    "singular": "job",
+    "plural": "jobs"
+  },
+  "exportFilename": "scheduled-jobs",
+  "printTitle": "Scheduled Jobs"
+}

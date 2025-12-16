@@ -1,0 +1,168 @@
+{
+  "dashboard": {
+    "title": "Business Metrics",
+    "tags": ["meal-request", "business"],
+    "timezone": "browser",
+    "refresh": "1m",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Meal Requests Created (Rate)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(meal_requests_total[5m]))",
+            "legendFormat": "requests/s"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "decimals": 3
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Approval Rate",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0},
+        "targets": [
+          {
+            "expr": "(sum(rate(meal_requests_total{status=\"approved\"}[5m])) / sum(rate(meal_requests_total[5m]))) * 100",
+            "legendFormat": "approval %"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "decimals": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 50, "color": "yellow"},
+                {"value": 80, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Active User Sessions",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(active_user_sessions)",
+            "legendFormat": "sessions"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Meal Requests by Status (24h)",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "sum(meal_requests_by_status) by (status)",
+            "legendFormat": "{{status}}",
+            "instant": true
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Meal Requests by Meal Type (24h)",
+        "type": "barchart",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "sum(rate(meal_requests_total[24h])) by (meal_type)",
+            "legendFormat": "{{meal_type}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps"
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Meal Request Creation Trend",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "sum(rate(meal_requests_total[5m])) by (status)",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "reqps", "label": "Requests/sec"},
+          {"format": "short"}
+        ],
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "avg": true,
+          "max": true,
+          "current": true
+        }
+      },
+      {
+        "id": 7,
+        "title": "User Operations",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+        "targets": [
+          {
+            "expr": "sum(rate(user_operations_total[5m])) by (operation)",
+            "legendFormat": "{{operation}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Operations/sec"},
+          {"format": "short"}
+        ],
+        "legend": {
+          "show": true,
+          "alignAsTable": true
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "title": "تقرير المراجعة",
+  "refresh": "تحديث",
+  "exportResults": "تصدير النتائج",
+  "search": "بحث",
+  "searchPlaceholder": "البحث في سجلات المراجعة...",
+  "exportFilename": "تقرير_المراجعة",
+  "printTitle": "تقرير المراجعة",
+  "filters": {
+    "startDate": "تاريخ البداية",
+    "endDate": "تاريخ النهاية"
+  },
+  "columns": {
+    "code": "الكود",
+    "name": "الاسم",
+    "title": "المسمى",
+    "department": "القسم",
+    "requester": "المُرسل",
+    "requesterTitle": "مسمى المُرسل",
+    "requestTime": "وقت الطلب",
+    "mealType": "نوع الوجبة",
+    "attendanceIn": "وقت الدخول",
+    "attendanceOut": "وقت الخروج",
+    "hours": "الساعات",
+    "notes": "ملاحظات"
+  },
+  "noData": "لا توجد بيانات للمراجعة",
+  "exportAll": "تصدير الكل",
+  "exportAllTooltip": "تصدير جميع سجلات المراجعة إلى CSV",
+  "printAll": "طباعة الكل",
+  "printAllTooltip": "طباعة جميع سجلات المراجعة",
+  "dateRange": "نطاق التاريخ",
+  "totalRecords": "إجمالي السجلات",
+  "errors": {
+    "dateRangeRequired": "الرجاء اختيار نطاق التاريخ",
+    "popupBlocked": "الرجاء السماح بالنوافذ المنبثقة للطباعة"
+  }
+}

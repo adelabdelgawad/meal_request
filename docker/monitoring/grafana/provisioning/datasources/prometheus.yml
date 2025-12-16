@@ -1,0 +1,30 @@
+# Grafana Datasource Provisioning for Prometheus
+# This file automatically configures the Prometheus datasource on Grafana startup
+
+apiVersion: 1
+
+# List of datasources to insert/update
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+
+    # JSON data for datasource-specific configuration
+    jsonData:
+      # HTTP method to use for queries (POST recommended for large queries)
+      httpMethod: POST
+
+      # Time interval between data points (should match Prometheus scrape interval)
+      timeInterval: '15s'
+
+      # Query timeout
+      queryTimeout: '60s'
+
+      # Enable Prometheus exemplars support (traces linked to metrics)
+      exemplarTraceIdDestinations: []
+
+    # Version of the datasource plugin
+    version: 1

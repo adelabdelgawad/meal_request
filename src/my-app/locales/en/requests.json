@@ -1,0 +1,77 @@
+{
+  "title": "Requests Management",
+  "filters": {
+    "status": "Status",
+    "statusAny": "Any",
+    "statusPending": "Pending",
+    "statusApproved": "Approved",
+    "statusRejected": "Rejected",
+    "fromDate": "From",
+    "toDate": "To",
+    "search": "Search requester...",
+    "searchByName": "Search by requester...",
+    "clearAll": "Clear all"
+  },
+  "table": {
+    "id": "#",
+    "requester": "Requester",
+    "title": "Title",
+    "requestTime": "Request Time",
+    "closedTime": "Closed Time",
+    "notes": "Notes",
+    "mealType": "Type",
+    "totalRequests": "Requests",
+    "accepted": "Accepted",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "modal": {
+    "title": "Order Details",
+    "code": "Code",
+    "employeeName": "Employee Name",
+    "employeeTitle": "Employee Title",
+    "department": "Department",
+    "shift": "Shift",
+    "attendance": "Attendance Time",
+    "notAttended": "Not Attended",
+    "type": "Type",
+    "acceptedLabel": "Accepted",
+    "notesLabel": "Notes",
+    "cancel": "Cancel",
+    "save": "Save Changes"
+  },
+  "actions": {
+    "view": "View Details",
+    "approve": "Approve",
+    "reject": "Reject",
+    "confirmApprove": "Are you sure you want to approve this request?",
+    "confirmReject": "Are you sure you want to reject this request?"
+  },
+  "dialogs": {
+    "approveTitle": "Approve Request",
+    "approveMessage": "Are you sure you want to approve Meal Request ID:",
+    "rejectTitle": "Reject Request",
+    "rejectMessage": "Are you sure you want to reject Meal Request ID:",
+    "approving": "Approving...",
+    "rejecting": "Rejecting...",
+    "approve": "Approve",
+    "reject": "Reject",
+    "cancel": "Cancel"
+  },
+  "stats": {
+    "total": "Total Requests"
+  },
+  "live": {
+    "active": "Live",
+    "inactive": "Offline",
+    "live": "Live",
+    "updating": "Updating..."
+  },
+  "noRequests": "No requests found",
+  "success": {
+    "approved": "Request approved successfully",
+    "rejected": "Request rejected successfully",
+    "updated": "Request updated successfully"
+  },
+  "error": "An error occurred"
+}

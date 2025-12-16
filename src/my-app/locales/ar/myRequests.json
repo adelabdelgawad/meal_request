@@ -1,0 +1,67 @@
+{
+  "title": "طلباتي",
+  "description": "عرض وتتبع جميع طلبات الوجبات المقدمة",
+  "table": {
+    "id": "#",
+    "requestTime": "وقت الطلب",
+    "mealType": "النوع",
+    "totalRequests": "الطلبات",
+    "accepted": "المقبول",
+    "status": "الحالة",
+    "closedTime": "وقت الإغلاق",
+    "notes": "ملاحظات",
+    "actions": "الإجراءات",
+    "viewDetails": "عرض التفاصيل",
+    "copyRequest": "نسخ الطلب",
+    "deleteRequest": "حذف الطلب",
+    "cannotCopyPending": "لا يمكن نسخ الطلبات قيد الانتظار",
+    "canOnlyDeletePending": "يمكن حذف الطلبات قيد الانتظار فقط"
+  },
+  "modal": {
+    "title": "تفاصيل الطلب",
+    "requestTime": "وقت الطلب",
+    "mealType": "نوع الوجبة",
+    "totalEmployees": "إجمالي الموظفين",
+    "acceptedEmployees": "المقبول",
+    "closedOn": "أُغلق في",
+    "accepted": "مقبول",
+    "rejected": "مرفوض",
+    "close": "إغلاق",
+    "viewOnlyMessage": "هذا عرض للقراءة فقط لطلبك",
+    "failedToLoad": "فشل تحميل التفاصيل. يرجى المحاولة مرة أخرى.",
+    "noRequestLines": "لا توجد سطور طلب"
+  },
+  "lineTable": {
+    "rowNum": "#",
+    "code": "الكود",
+    "employeeName": "اسم الموظف",
+    "title": "المسمى",
+    "department": "القسم",
+    "shift": "الوردية",
+    "status": "الحالة",
+    "notes": "ملاحظات",
+    "actions": "الإجراءات",
+    "deleteLine": "حذف السطر"
+  },
+  "deleteRequest": {
+    "title": "حذف الطلب؟",
+    "message": "هل أنت متأكد من حذف الطلب #{{requestId}}؟ سيؤدي هذا إلى إزالة جميع سطور الطلب ({{totalLines}}). لا يمكن التراجع عن هذا الإجراء.",
+    "confirm": "حذف",
+    "cancel": "إلغاء"
+  },
+  "deleteLine": {
+    "title": "حذف سطر الموظف؟",
+    "message": "هل أنت متأكد من إزالة {{employeeName}} من هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.",
+    "confirm": "حذف",
+    "cancel": "إلغاء"
+  },
+  "copySuccess": "تم نسخ الطلب بنجاح",
+  "copySuccessMessage": "تم إنشاء الطلب الجديد #{{id}} مع {{linesCopied}} سطر",
+  "copyError": "فشل النسخ",
+  "deleteSuccess": "تم حذف الطلب بنجاح",
+  "deleteSuccessMessage": "تم حذف الطلب #{{requestId}} و{{totalLines}} سطور",
+  "deleteError": "فشل الحذف",
+  "deleteLineSuccess": "تمت إزالة الموظف بنجاح",
+  "deleteLineSuccessMessage": "تمت إزالة {{employeeName}} من الطلب",
+  "deleteLineError": "فشلت إزالة الموظف"
+}

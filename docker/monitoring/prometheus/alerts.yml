@@ -1,0 +1,328 @@
+# Prometheus Alert Rules for Meal Request Application
+# These alerts fire when specific conditions are met
+
+groups:
+  # Service Availability Alerts
+  - name: service_availability
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up{job="fastapi-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: backend
+        annotations:
+          summary: "Backend service is down"
+          description: "The FastAPI backend service at {{ $labels.instance }} has been down for more than 2 minutes."
+          impact: "Users cannot access the meal request application"
+          action: "Check backend service logs and container status"
+
+      - alert: HighInstanceRestarts
+        expr: changes(process_start_time_seconds{job="fastapi-backend"}[15m]) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: backend
+        annotations:
+          summary: "Backend service restarting frequently"
+          description: "Backend instance {{ $labels.instance }} has restarted {{ $value }} times in the last 15 minutes"
+          action: "Check for crash loops or OOM kills"
+
+  # HTTP Error Rate Alerts
+  - name: http_errors
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="fastapi-backend", status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="fastapi-backend"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: backend
+        annotations:
+          summary: "High HTTP error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+          impact: "Users are experiencing errors"
+          action: "Check application logs for exceptions and database connectivity"
+
+      - alert: ElevatedErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="fastapi-backend", status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="fastapi-backend"}[5m]))
+          ) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          component: backend
+        annotations:
+          summary: "Elevated HTTP error rate"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 1%)"
+          action: "Monitor for increase, review recent deployments"
+
+      - alert: High4xxRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="fastapi-backend", status_code=~"4.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="fastapi-backend"}[5m]))
+          ) > 0.15
+        for: 10m
+        labels:
+          severity: warning
+          component: backend
+        annotations:
+          summary: "High rate of 4xx errors"
+          description: "Client error rate is {{ $value | humanizePercentage }} (threshold: 15%)"
+          action: "Check for API changes or client integration issues"
+
+  # Performance & Latency Alerts
+  - name: performance
+    interval: 30s
+    rules:
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="fastapi-backend"}[5m])) by (le, endpoint)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: backend
+        annotations:
+          summary: "High API latency detected"
+          description: "P95 latency for {{ $labels.endpoint }} is {{ $value }}s (threshold: 1s)"
+          impact: "Users experiencing slow response times"
+          action: "Check database query performance and system resources"
+
+      - alert: CriticalLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="fastapi-backend"}[5m])) by (le, endpoint)
+          ) > 5.0
+        for: 3m
+        labels:
+          severity: critical
+          component: backend
+        annotations:
+          summary: "Critical API latency"
+          description: "P95 latency for {{ $labels.endpoint }} is {{ $value }}s (threshold: 5s)"
+          impact: "Severe performance degradation"
+          action: "Immediate investigation required - check for deadlocks or resource exhaustion"
+
+  # Database Alerts
+  - name: database
+    interval: 30s
+    rules:
+      - alert: DatabaseConnectionPoolExhausted
+        expr: db_connection_pool_size{state="idle"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database connection pool exhausted"
+          description: "No idle database connections available for {{ $labels.pool }}"
+          impact: "New requests will fail or timeout"
+          action: "Check for connection leaks, increase pool size, or scale horizontally"
+
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(db_query_duration_seconds_bucket[5m])) by (le, operation, table)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "P95 query time for {{ $labels.operation }} on {{ $labels.table }} is {{ $value }}s"
+          action: "Review query execution plans and add indexes"
+
+  # System Resource Alerts
+  - name: system_resources
+    interval: 30s
+    rules:
+      - alert: HighCPUUsage
+        expr: process_cpu_usage_percent > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% (threshold: 80%)"
+          action: "Check for inefficient code or scale horizontally"
+
+      - alert: CriticalCPUUsage
+        expr: process_cpu_usage_percent > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "Critical CPU usage"
+          description: "CPU usage is {{ $value }}% (threshold: 95%)"
+          impact: "Service performance severely degraded"
+          action: "Immediate scaling or investigation required"
+
+      - alert: HighMemoryUsage
+        expr: (process_memory_bytes{type="rss"} / 1073741824) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}GB (threshold: 2GB)"
+          action: "Check for memory leaks or increase container limits"
+
+      - alert: MemoryLeakDetected
+        expr: |
+          deriv(process_memory_bytes{type="rss"}[30m]) > 10485760
+        for: 30m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "Potential memory leak detected"
+          description: "Memory growing at {{ $value | humanize }}B/s over 30 minutes"
+          action: "Review code for memory leaks, check for accumulating caches"
+
+  # Authentication & Security Alerts
+  - name: security
+    interval: 30s
+    rules:
+      - alert: HighAuthenticationFailureRate
+        expr: rate(auth_failures_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Authentication failures at {{ $value }}/s (threshold: 10/s)"
+          action: "Check for brute force attacks or integration issues"
+
+      - alert: RateLimitHitsSpike
+        expr: rate(rate_limit_hits_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "Rate limit being hit frequently"
+          description: "Rate limit hits at {{ $value }}/s for {{ $labels.endpoint }}"
+          action: "Review rate limit configuration or investigate client behavior"
+
+  # Celery Task Alerts
+  - name: celery_tasks
+    interval: 30s
+    rules:
+      - alert: HighCeleryTaskFailureRate
+        expr: |
+          (
+            sum(rate(celery_task_total{status="failure"}[5m]))
+            /
+            sum(rate(celery_task_total[5m]))
+          ) > 0.10
+        for: 5m
+        labels:
+          severity: warning
+          component: celery
+        annotations:
+          summary: "High Celery task failure rate"
+          description: "Task failure rate is {{ $value | humanizePercentage }} (threshold: 10%)"
+          action: "Check Celery worker logs and task implementations"
+
+      - alert: CeleryQueueBacklog
+        expr: celery_queue_length > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: celery
+        annotations:
+          summary: "Celery queue backlog"
+          description: "Queue {{ $labels.queue_name }} has {{ $value }} pending tasks"
+          action: "Scale up workers or investigate task processing bottlenecks"
+
+      - alert: CeleryWorkerDown
+        expr: celery_active_tasks == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: celery
+        annotations:
+          summary: "Celery worker appears down"
+          description: "No active tasks detected for worker {{ $labels.worker }}"
+          action: "Check worker process status and logs"
+
+  # Redis Cache Alerts
+  - name: redis_cache
+    interval: 30s
+    rules:
+      - alert: RedisHighMemoryUsage
+        expr: (redis_used_memory_bytes / 536870912) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is {{ $value | humanizePercentage }} of max (threshold: 90%)"
+          action: "Review maxmemory-policy or increase Redis memory limit"
+
+      - alert: RedisLowCacheHitRate
+        expr: |
+          (
+            rate(redis_keyspace_hits_total[5m])
+            /
+            (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]))
+          ) < 0.5
+        for: 10m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Low Redis cache hit rate"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} (threshold: 50%)"
+          action: "Review caching strategy and TTL settings"
+
+  # Business Metrics Alerts
+  - name: business_metrics
+    interval: 60s
+    rules:
+      - alert: NoMealRequestsCreated
+        expr: |
+          rate(meal_requests_total[30m]) == 0
+        for: 1h
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "No meal requests created"
+          description: "No meal requests have been created in the last hour"
+          action: "Check if this is expected (off-hours) or investigate user issues"
+
+      - alert: HighMealRequestRejectionRate
+        expr: |
+          (
+            sum(rate(meal_requests_total{status="rejected"}[10m]))
+            /
+            sum(rate(meal_requests_total[10m]))
+          ) > 0.30
+        for: 15m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "High meal request rejection rate"
+          description: "{{ $value | humanizePercentage }} of requests are being rejected"
+          action: "Review rejection reasons and approval workflows"

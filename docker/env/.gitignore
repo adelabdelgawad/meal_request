@@ -1,0 +1,5 @@
+# Ignore all service-specific environment files
+.env.*
+
+# Keep the example templates
+!.env.example.*

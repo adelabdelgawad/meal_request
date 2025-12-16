@@ -1,0 +1,153 @@
+{
+  "title": "المهام المجدولة",
+  "entity": "مهمة",
+  "primary": "أساسي",
+  "selected": "محدد",
+  "noSelection": "لم يتم تحديد أي مهام",
+  "search": "البحث عن المهام...",
+  "neverRun": "لم يتم التشغيل",
+  "noDescription": "لا يوجد وصف",
+  "schedulerStatus": "حالة المجدول",
+  "activeInstances": "المثيلات النشطة",
+  "recentExecutions": "التنفيذات الأخيرة",
+  "placeholders": {
+    "selectTask": "اختر مهمة...",
+    "selectType": "اختر نوع..."
+  },
+  "columns": {
+    "jobKey": "مفتاح المهمة",
+    "name": "الاسم",
+    "type": "النوع",
+    "schedule": "الجدول",
+    "priority": "الأولوية",
+    "enabled": "مفعّل",
+    "nextRun": "التشغيل التالي",
+    "lastRun": "آخر تشغيل",
+    "status": "الحالة",
+    "actions": "الإجراءات"
+  },
+  "filters": {
+    "type": "نوع المهمة",
+    "allTypes": "جميع الأنواع",
+    "interval": "فترة",
+    "cron": "كرون"
+  },
+  "status": {
+    "running": "قيد التشغيل",
+    "stopped": "متوقف",
+    "enabled": "مفعّل",
+    "disabled": "معطّل",
+    "pending": "قيد الانتظار"
+  },
+  "actions": {
+    "view": "عرض المهمة",
+    "edit": "تعديل المهمة",
+    "delete": "حذف المهمة",
+    "enable": "تفعيل",
+    "disable": "تعطيل",
+    "runNow": "تشغيل الآن",
+    "running": "جارٍ التشغيل..."
+  },
+  "unsavedChanges": "تغييرات غير محفوظة",
+  "confirmations": {
+    "deleteTitle": "حذف المهمة المجدولة",
+    "deleteMessage": "هل أنت متأكد من رغبتك في حذف هذه المهمة المجدولة؟ لا يمكن التراجع عن هذا الإجراء.",
+    "triggerTitle": "تشغيل المهمة الآن",
+    "triggerMessage": "هل أنت متأكد من أنك تريد تشغيل \"{jobName}\" الآن؟ سيتم تنفيذ المهمة فورًا.",
+    "createTitle": "إنشاء مهمة",
+    "createMessage": "هل أنت متأكد من رغبتك في إنشاء هذه المهمة المجدولة؟",
+    "updateTitle": "حفظ التغييرات",
+    "updateMessage": "هل أنت متأكد من رغبتك في حفظ هذه التغييرات؟",
+    "discardTitle": "تجاهل التغييرات",
+    "discardMessage": "لديك تغييرات غير محفوظة. هل أنت متأكد من رغبتك في الإغلاق؟"
+  },
+  "validation": {
+    "taskFunctionRequired": "الرجاء اختيار وظيفة المهمة",
+    "jobTypeRequired": "الرجاء اختيار نوع المهمة"
+  },
+  "types": {
+    "interval": "فترة",
+    "cron": "كرون"
+  },
+  "sections": {
+    "status": "الحالة",
+    "schedule": "الجدول",
+    "configuration": "الإعدادات",
+    "technical": "التفاصيل التقنية"
+  },
+  "fields": {
+    "jobKey": "مفتاح المهمة",
+    "nameEn": "الاسم (إنجليزي)",
+    "nameAr": "الاسم (عربي)",
+    "descriptionEn": "الوصف (إنجليزي)",
+    "descriptionAr": "الوصف (عربي)",
+    "type": "نوع المهمة",
+    "schedule": "الجدول",
+    "nextRun": "التشغيل التالي",
+    "lastRun": "آخر تشغيل",
+    "lastStatus": "حالة آخر تشغيل",
+    "enabled": "مفعّل",
+    "priority": "الأولوية",
+    "maxInstances": "الحد الأقصى للمثيلات",
+    "misfireGrace": "فترة السماح (ث)",
+    "coalesce": "دمج",
+    "cronExpression": "تعبير كرون",
+    "function": "الوظيفة",
+    "taskFunction": "وظيفة المهمة",
+    "id": "المعرف",
+    "days": "أيام",
+    "hours": "ساعات",
+    "minutes": "دقائق",
+    "seconds": "ثواني"
+  },
+  "edit": {
+    "title": "تعديل المهمة",
+    "description": "تحديث إعدادات المهمة",
+    "nameSection": "الاسم والوصف",
+    "scheduleSection": "الجدول",
+    "configSection": "الإعدادات",
+    "enabledHelp": "تفعيل أو تعطيل هذه المهمة",
+    "cronHelp": "الصيغة: دقيقة ساعة يوم شهر يوم_الأسبوع"
+  },
+  "create": {
+    "title": "إضافة جدولة",
+    "description": "إنشاء مهمة مجدولة جديدة",
+    "button": "إضافة جدولة",
+    "submit": "إنشاء المهمة",
+    "identifierSection": "المعرّف",
+    "taskSection": "وظيفة المهمة",
+    "tooltip": "إضافة مهمة مجدولة جديدة"
+  },
+  "schedule": {
+    "notConfigured": "غير مكوّن"
+  },
+  "error": {
+    "loadJobs": "فشل في تحميل المهام المجدولة"
+  },
+  "toast": {
+    "enableSuccess": "تم تفعيل المهمة بنجاح",
+    "disableSuccess": "تم تعطيل المهمة بنجاح",
+    "triggerSuccess": "تم تشغيل المهمة بنجاح",
+    "updateSuccess": "تم تحديث المهمة بنجاح",
+    "deleteSuccess": "تم حذف المهمة بنجاح",
+    "createSuccess": "تم إنشاء المهمة بنجاح",
+    "createError": "فشل في إنشاء المهمة",
+    "updateError": "فشل في تحديث المهمة",
+    "triggerError": "فشل في تشغيل المهمة",
+    "deleteError": "فشل في حذف المهمة",
+    "loadError": "فشل في تحميل الخيارات",
+    "enabledMultiple": "تم تفعيل {count} مهمة بنجاح",
+    "disabledMultiple": "تم تعطيل {count} مهمة بنجاح",
+    "alreadyEnabled": "المهام المحددة مفعّلة بالفعل",
+    "alreadyDisabled": "المهام المحددة معطّلة بالفعل",
+    "enableError": "فشل في تفعيل المهام",
+    "disableError": "فشل في تعطيل المهام",
+    "statusError": "فشل في تحديث حالة المهمة"
+  },
+  "itemName": {
+    "singular": "مهمة",
+    "plural": "مهام"
+  },
+  "exportFilename": "المهام-المجدولة",
+  "printTitle": "المهام المجدولة"
+}

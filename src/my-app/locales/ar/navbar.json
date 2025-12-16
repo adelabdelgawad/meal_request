@@ -1,0 +1,19 @@
+{
+  "title": "نظام طلب الوجبات",
+  "home": "الرئيسية",
+  "myRequests": "طلباتي",
+  "settings": "الإعدادات",
+  "setup": "الإعداد",
+  "users": "المستخدمين",
+  "domainUsers": "مستخدمي النطاق",
+  "serviceAccounts": "حسابات الخدمة",
+  "roles": "الصلاحيات",
+  "scheduler": "المجدول",
+  "mealTypeSetup": "أنواع الوجبات",
+  "logout": "تسجيل الخروج",
+  "mealRequest": "طلب وجبة",
+  "requestsManagement": "إدارة الطلبات",
+  "requestsAnalysis": "تحليل الطلبات",
+  "audit": "تقرير المراجعة",
+  "offline": "غير متصل"
+}

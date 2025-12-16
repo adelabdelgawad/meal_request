@@ -1,0 +1,61 @@
+{
+  "title": "Create Meal Request",
+  "departments": {
+    "title": "Departments",
+    "search": "Search...",
+    "selectAll": "Select All",
+    "removeAll": "Remove All",
+    "noDepartments": "No departments found",
+    "selected": "selected",
+    "selectDepartments": "Select departments to view employees",
+    "depts": "Depts"
+  },
+  "employees": {
+    "title": "Employees",
+    "search": "Search...",
+    "addSelected": "Add",
+    "add": "Add",
+    "noEmployees": "No employees found",
+    "available": "available",
+    "checked": "checked",
+    "notePlaceholder": "Note (optional)",
+    "noDepartmentsSelected": "No departments selected",
+    "selectDepartmentsFirst": "Select departments to view employees",
+    "tryDifferentSearch": "Try a different search or department"
+  },
+  "selected": {
+    "title": "Selected",
+    "removeAll": "Clear",
+    "clear": "Clear",
+    "noSelection": "No employees selected",
+    "addFromLeft": "Add employees from the left panel",
+    "count": "{count} employee(s) selected",
+    "lunch": "L",
+    "dinner": "D"
+  },
+  "mealType": {
+    "title": "Meal Type",
+    "lunch": "Lunch",
+    "dinner": "Dinner",
+    "selectAtLeastOne": "Select at least one meal type"
+  },
+  "notes": {
+    "label": "Notes",
+    "placeholder": "Enter your notes here..."
+  },
+  "submit": {
+    "button": "Submit Request",
+    "submitting": "Submitting...",
+    "selectEmployees": "Please select at least one employee",
+    "selectMealType": "Please select at least one meal type",
+    "mealsReady": "Meals ready for submission",
+    "selectToSubmit": "Select at least one employee to submit"
+  },
+  "toast": {
+    "success": "Meal request submitted successfully",
+    "error": "Failed to submit meal request",
+    "employeeAdded": "employee(s) added successfully",
+    "employeeRemoved": "Employee removed from selection",
+    "allRemoved": "All employees removed from selection"
+  }
+}

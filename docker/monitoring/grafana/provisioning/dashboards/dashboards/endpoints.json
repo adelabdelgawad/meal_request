@@ -1,0 +1,241 @@
+{
+  "title": "API Endpoint Performance",
+  "tags": [
+    "meal-request",
+    "endpoints",
+    "api"
+  ],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "endpoint",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(http_requests_total, endpoint)",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Rate by Endpoint",
+      "type": "table",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{endpoint=~\"$endpoint\"}[5m])) by (endpoint, method)",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Value",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "endpoint": "Endpoint",
+              "method": "Method",
+              "Value": "Req/sec"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "P95 Latency by Endpoint",
+      "type": "table",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{endpoint=~\"$endpoint\"}[5m])) by (le, endpoint, method))",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Value",
+            "desc": true
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3
+        }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "endpoint": "Endpoint",
+              "method": "Method",
+              "Value": "P95 Latency"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Endpoint Latency Distribution",
+      "type": "graph",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{endpoint=~\"$endpoint\"}[5m])) by (le, endpoint))",
+          "legendFormat": "{{endpoint}} - P50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{endpoint=~\"$endpoint\"}[5m])) by (le, endpoint))",
+          "legendFormat": "{{endpoint}} - P95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{endpoint=~\"$endpoint\"}[5m])) by (le, endpoint))",
+          "legendFormat": "{{endpoint}} - P99"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "s",
+          "label": "Duration"
+        },
+        {
+          "format": "short"
+        }
+      ],
+      "legend": {
+        "show": true,
+        "alignAsTable": true,
+        "avg": true,
+        "max": true,
+        "current": true
+      }
+    },
+    {
+      "id": 4,
+      "title": "Error Rate by Endpoint",
+      "type": "graph",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "(sum(rate(http_requests_total{status_code=~\"5..\",endpoint=~\"$endpoint\"}[5m])) by (endpoint) / sum(rate(http_requests_total{endpoint=~\"$endpoint\"}[5m])) by (endpoint)) * 100",
+          "legendFormat": "{{endpoint}}"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "percent",
+          "label": "Error %"
+        },
+        {
+          "format": "short"
+        }
+      ],
+      "legend": {
+        "show": true,
+        "alignAsTable": true,
+        "avg": true,
+        "max": true
+      }
+    },
+    {
+      "id": 5,
+      "title": "Request Size by Endpoint",
+      "type": "graph",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_size_bytes_bucket{endpoint=~\"$endpoint\"}[5m])) by (le, endpoint))",
+          "legendFormat": "{{endpoint}} - P95"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "bytes",
+          "label": "Size"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Response Size by Endpoint",
+      "type": "graph",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_response_size_bytes_bucket{endpoint=~\"$endpoint\"}[5m])) by (le, endpoint))",
+          "legendFormat": "{{endpoint}} - P95"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "bytes",
+          "label": "Size"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    }
+  ],
+  "id": null,
+  "uid": null,
+  "version": 0
+}

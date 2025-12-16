@@ -1,0 +1,11 @@
+{
+  "welcome": "Welcome to Meal Request System",
+  "description": "Manage your meal requests and preferences",
+  "userInfo": "User Information",
+  "sessionDetails": "Your current session details",
+  "refreshSession": "Refresh Session",
+  "rolesAndScopes": "Roles & Scopes",
+  "accessPermissions": "Your access permissions",
+  "accessiblePages": "Accessible Pages",
+  "pagesDescription": "Pages you have permission to access (updates automatically when session refreshes)"
+}

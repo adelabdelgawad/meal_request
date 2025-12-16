@@ -1,0 +1,41 @@
+--- a/app/api/auth/session/route.ts
++++ b/app/api/auth/session/route.ts
+@@ -108,12 +108,11 @@ export async function GET(request: NextRequest) {
+
+       // Attempt to refresh the access token
+       const refreshResult = await serverApi.post<{
+-        access_token: string;
+-        token_type: string;
+-        expires_in: number;
++        accessToken: string;
++        tokenType: string;
++        expiresIn: number;
+       }>(
+         "/api/v1/auth/refresh",
+-        { refresh_token: refreshToken }
++        { refreshToken }
+       );
+
+       if (!refreshResult.ok) {
+@@ -128,7 +127,7 @@ export async function GET(request: NextRequest) {
+         "/api/v1/auth/session",
+         {
+           headers: {
+-            Authorization: `Bearer ${refreshResult.data.access_token}`,
++            Authorization: `Bearer ${refreshResult.data.accessToken}`,
+           },
+         }
+       );
+@@ -145,11 +144,11 @@ export async function GET(request: NextRequest) {
+         );
+
+         // Update access token cookie
+-        response.cookies.set("access_token", refreshResult.data.access_token, {
++        response.cookies.set("access_token", refreshResult.data.accessToken, {
+           httpOnly: true,
+           secure: process.env.NODE_ENV === "production",
+           sameSite: "lax",
+-          maxAge: refreshResult.data.expires_in,
++          maxAge: refreshResult.data.expiresIn,
+           path: "/",
+         });

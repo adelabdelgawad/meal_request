@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meal Request Confirmation</title>
+</head>
+
+<body style="font-family: Arial, sans-serif; background-color: #121212; margin: 0; padding: 0; color: #e0e0e0;">
+
+    <table align="center" cellpadding="0" cellspacing="0" border="0" width="100%"
+        style="background-color: #121212; padding: 20px 0;">
+        <tr>
+            <td align="center">
+                <table cellpadding="0" cellspacing="0" border="0" width="600"
+                    style="background-color: #1e1e1e; border-top: 4px solid #4caf50;">
+                    <tr>
+                        <td align="center"
+                            style="background-color: #333333; padding: 20px; color: #ffffff; font-size: 24px; font-weight: bold;">
+                            Meal Request Confirmation
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px; color: #bdbdbd; font-size: 16px;">
+                            <p style="margin: 0;"> The meal request has been processed. Below is the detailed
+                                confirmation of each employee's request:
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0 30px 30px; color: #ffffff; font-size: 18px; font-weight: bold;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                                <thead>
+                                    <tr>
+                                        <th
+                                            style="background-color: #007bff; color: #ffffff; padding: 12px; text-align: left; border: 1px solid #dddddd;">
+                                            #</th>
+                                        <th
+                                            style="background-color: #007bff; color: #ffffff; padding: 12px; text-align: left; border: 1px solid #dddddd;">
+                                            Employee Name</th>
+                                        <th
+                                            style="background-color: #007bff; color: #ffffff; padding: 12px; text-align: left; border: 1px solid #dddddd;">
+                                            Status</th>
+                                        <th
+                                            style="background-color: #007bff; color: #ffffff; padding: 12px; text-align: left; border: 1px solid #dddddd;">
+                                            Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for request_line in request_lines %}
+                                    <tr>
+                                        <td style="padding: 12px; border: 1px solid #dddddd; text-align: center;">{{
+                                            loop.index }}</td>
+                                        <td style="padding: 12px; border: 1px solid #dddddd;">{{
+                                            request_line.name }}</td>
+                                        <td style="padding: 12px; border: 1px solid #dddddd;">
+                                            {% if request_line.accepted %}
+                                            <span style="color: #4caf50; font-weight: bold;">Approved</span>
+                                            {% else %}
+                                            <span style="color: #f44336; font-weight: bold;">Rejected</span>
+                                            {% endif %}
+                                        </td>
+                                        <td style="padding: 12px; border: 1px solid #dddddd;">{{
+                                            request_line.notes }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align="center" style="padding: 20px; font-size: 12px; color: #aaaaaa;">
+                            &copy; 2024 Andalusia HealthCare | This is an automated message, please do not reply.
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+</body>
+
+</html>

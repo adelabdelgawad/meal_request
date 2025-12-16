@@ -1,0 +1,35 @@
+{
+  "loading": "Loading...",
+  "save": "Save",
+  "saving": "Saving...",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "edit": "Edit",
+  "create": "Create",
+  "creating": "Creating...",
+  "search": "Search...",
+  "noData": "No data available",
+  "error": "An error occurred",
+  "success": "Success",
+  "confirm": "Confirm",
+  "yes": "Yes",
+  "no": "No",
+  "retry": "Retry",
+  "datePicker": {
+    "placeholder": "Pick a date range",
+    "from": "From",
+    "to": "To",
+    "clear": "Clear",
+    "apply": "Apply",
+    "timeRange": "Time Range",
+    "presets": {
+      "title": "Presets",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "last7Days": "Last 7 days",
+      "last30Days": "Last 30 days",
+      "thisWeek": "This week",
+      "thisMonth": "This month"
+    }
+  }
+}

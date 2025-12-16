@@ -1,0 +1,43 @@
+# ==============================================================================
+# Prometheus Configuration for Meal Request Application
+# ==============================================================================
+# Simplified configuration following best practices
+# Scrapes metrics from FastAPI backend and infrastructure components
+# ==============================================================================
+
+global:
+  # How frequently to scrape targets
+  scrape_interval: 15s
+
+  # How frequently to evaluate rules
+  evaluation_interval: 15s
+
+# ==============================================================================
+# Scrape Configurations
+# ==============================================================================
+scrape_configs:
+  # FastAPI Backend Application
+  - job_name: 'fastapi'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/metrics'
+
+  # Node Exporter - System metrics (CPU, memory, disk, network)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # MariaDB Exporter - Database metrics
+  - job_name: 'mariadb'
+    static_configs:
+      - targets: ['mariadb-exporter:9104']
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Redis Exporter - Cache metrics (optional)
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']

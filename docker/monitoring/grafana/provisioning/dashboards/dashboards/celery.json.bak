@@ -1,0 +1,193 @@
+{
+  "dashboard": {
+    "title": "Celery Tasks",
+    "tags": ["meal-request", "celery", "tasks"],
+    "timezone": "browser",
+    "refresh": "1m",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Task Execution Rate",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(celery_task_total[5m]))",
+            "legendFormat": "tasks/s"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "decimals": 2
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Task Failure Rate",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0},
+        "targets": [
+          {
+            "expr": "(sum(rate(celery_task_total{status=\"failure\"}[5m])) / sum(rate(celery_task_total[5m]))) * 100",
+            "legendFormat": "failure %"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "decimals": 2,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 5, "color": "yellow"},
+                {"value": 15, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Queue Length",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(celery_queue_length)",
+            "legendFormat": "queued"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 50, "color": "yellow"},
+                {"value": 100, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Task Execution by Task Name",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "sum(rate(celery_task_total[5m])) by (task_name, status)",
+            "legendFormat": "{{task_name}} - {{status}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Tasks/sec"},
+          {"format": "short"}
+        ],
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "avg": true,
+          "max": true,
+          "current": true
+        }
+      },
+      {
+        "id": 5,
+        "title": "Task Duration P95",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(celery_task_duration_seconds_bucket[5m])) by (le, task_name))",
+            "legendFormat": "{{task_name}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short"}
+        ],
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "avg": true,
+          "max": true
+        }
+      },
+      {
+        "id": 6,
+        "title": "Task Success vs Failure Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "sum(rate(celery_task_total{status=\"success\"}[5m]))",
+            "legendFormat": "Success"
+          },
+          {
+            "expr": "sum(rate(celery_task_total{status=\"failure\"}[5m]))",
+            "legendFormat": "Failure"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Tasks/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Queue Length Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {
+            "expr": "celery_queue_length",
+            "legendFormat": "{{queue_name}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Queued Tasks"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Active Tasks by Worker",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+        "targets": [
+          {
+            "expr": "celery_active_tasks",
+            "legendFormat": "{{worker}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Active Tasks"},
+          {"format": "short"}
+        ]
+      }
+    ]
+  }
+}

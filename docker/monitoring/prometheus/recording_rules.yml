@@ -1,0 +1,242 @@
+# Prometheus Recording Rules for Meal Request Application
+# Recording rules pre-compute frequently-used or expensive queries
+
+groups:
+  # HTTP Request Metrics (pre-aggregated)
+  - name: http_request_rates
+    interval: 30s
+    rules:
+      # Total request rate per endpoint
+      - record: http:requests:rate5m
+        expr: |
+          sum(rate(http_requests_total[5m])) by (endpoint, method)
+
+      # Error rate per endpoint
+      - record: http:errors:rate5m
+        expr: |
+          sum(rate(http_requests_total{status_code=~"5.."}[5m])) by (endpoint, method)
+
+      # Error percentage
+      - record: http:errors:percentage5m
+        expr: |
+          (
+            sum(rate(http_requests_total{status_code=~"5.."}[5m])) by (endpoint, method)
+            /
+            sum(rate(http_requests_total[5m])) by (endpoint, method)
+          ) * 100
+
+      # Request rate by status code class
+      - record: http:requests_by_status:rate5m
+        expr: |
+          sum(rate(http_requests_total[5m])) by (status_code)
+
+  # Latency Percentiles (pre-computed)
+  - name: http_latency_percentiles
+    interval: 30s
+    rules:
+      # P50 latency per endpoint
+      - record: http:request_duration:p50
+        expr: |
+          histogram_quantile(0.50,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, endpoint, method)
+          )
+
+      # P90 latency per endpoint
+      - record: http:request_duration:p90
+        expr: |
+          histogram_quantile(0.90,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, endpoint, method)
+          )
+
+      # P95 latency per endpoint
+      - record: http:request_duration:p95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, endpoint, method)
+          )
+
+      # P99 latency per endpoint
+      - record: http:request_duration:p99
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, endpoint, method)
+          )
+
+      # Average latency per endpoint
+      - record: http:request_duration:avg5m
+        expr: |
+          sum(rate(http_request_duration_seconds_sum[5m])) by (endpoint, method)
+          /
+          sum(rate(http_request_duration_seconds_count[5m])) by (endpoint, method)
+
+  # Database Query Metrics
+  - name: database_query_metrics
+    interval: 30s
+    rules:
+      # Database query rate by operation
+      - record: db:queries:rate5m
+        expr: |
+          sum(rate(db_query_duration_seconds_count[5m])) by (operation, table)
+
+      # P95 database query duration
+      - record: db:query_duration:p95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(db_query_duration_seconds_bucket[5m])) by (le, operation, table)
+          )
+
+      # Average query duration
+      - record: db:query_duration:avg5m
+        expr: |
+          sum(rate(db_query_duration_seconds_sum[5m])) by (operation, table)
+          /
+          sum(rate(db_query_duration_seconds_count[5m])) by (operation, table)
+
+      # Slow query count (> 1s)
+      - record: db:slow_queries:count5m
+        expr: |
+          sum(rate(db_query_duration_seconds_bucket{le="1.0"}[5m])) by (operation, table)
+
+  # Business Metrics (pre-aggregated)
+  - name: business_metrics
+    interval: 60s
+    rules:
+      # Meal request creation rate
+      - record: meal_requests:creation:rate5m
+        expr: |
+          sum(rate(meal_requests_total[5m])) by (status, meal_type)
+
+      # Meal request approval rate
+      - record: meal_requests:approval:rate5m
+        expr: |
+          sum(rate(meal_requests_total{status="approved"}[5m]))
+
+      # Meal request rejection rate
+      - record: meal_requests:rejection:rate5m
+        expr: |
+          sum(rate(meal_requests_total{status="rejected"}[5m]))
+
+      # Meal request rejection percentage
+      - record: meal_requests:rejection:percentage5m
+        expr: |
+          (
+            sum(rate(meal_requests_total{status="rejected"}[5m]))
+            /
+            sum(rate(meal_requests_total[5m]))
+          ) * 100
+
+  # Authentication Metrics
+  - name: auth_metrics
+    interval: 30s
+    rules:
+      # Authentication success rate
+      - record: auth:success:rate5m
+        expr: |
+          sum(rate(auth_success_total[5m])) by (method)
+
+      # Authentication failure rate
+      - record: auth:failures:rate5m
+        expr: |
+          sum(rate(auth_failures_total[5m])) by (reason)
+
+      # Authentication failure percentage
+      - record: auth:failures:percentage5m
+        expr: |
+          (
+            sum(rate(auth_failures_total[5m]))
+            /
+            (sum(rate(auth_success_total[5m])) + sum(rate(auth_failures_total[5m])))
+          ) * 100
+
+  # Celery Task Metrics
+  - name: celery_task_metrics
+    interval: 30s
+    rules:
+      # Task execution rate
+      - record: celery:tasks:rate5m
+        expr: |
+          sum(rate(celery_task_total[5m])) by (task_name, status)
+
+      # Task failure rate
+      - record: celery:task_failures:rate5m
+        expr: |
+          sum(rate(celery_task_total{status="failure"}[5m])) by (task_name)
+
+      # Task success rate
+      - record: celery:task_success:rate5m
+        expr: |
+          sum(rate(celery_task_total{status="success"}[5m])) by (task_name)
+
+      # Task failure percentage
+      - record: celery:task_failures:percentage5m
+        expr: |
+          (
+            sum(rate(celery_task_total{status="failure"}[5m])) by (task_name)
+            /
+            sum(rate(celery_task_total[5m])) by (task_name)
+          ) * 100
+
+      # P95 task duration
+      - record: celery:task_duration:p95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(celery_task_duration_seconds_bucket[5m])) by (le, task_name)
+          )
+
+  # Redis Cache Metrics
+  - name: redis_cache_metrics
+    interval: 30s
+    rules:
+      # Cache hit rate
+      - record: redis:cache_hit:rate5m
+        expr: |
+          rate(redis_keyspace_hits_total[5m])
+          /
+          (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]))
+
+      # Cache miss rate
+      - record: redis:cache_miss:rate5m
+        expr: |
+          rate(redis_keyspace_misses_total[5m])
+          /
+          (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]))
+
+      # Cache operations per second
+      - record: redis:operations:rate5m
+        expr: |
+          rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m])
+
+  # System Resource Utilization
+  - name: system_resource_utilization
+    interval: 30s
+    rules:
+      # Average CPU usage over 5 minutes
+      - record: system:cpu:avg5m
+        expr: |
+          avg_over_time(process_cpu_usage_percent[5m])
+
+      # Memory usage in GB
+      - record: system:memory:gb
+        expr: |
+          process_memory_bytes{type="rss"} / 1073741824
+
+      # Memory growth rate (MB per minute)
+      - record: system:memory:growth_rate5m
+        expr: |
+          deriv(process_memory_bytes{type="rss"}[5m]) * 60 / 1048576
+
+  # Application Health Score (0-100)
+  - name: application_health
+    interval: 60s
+    rules:
+      # Composite health score based on multiple factors
+      # 100 = perfect, 0 = critical
+      - record: app:health:score
+        expr: |
+          (
+            (1 - clamp_max(http:errors:percentage5m / 100, 1)) * 30 +
+            (clamp_max(1 - (http:request_duration:p95 / 5), 1)) * 25 +
+            (redis:cache_hit:rate5m) * 20 +
+            (1 - clamp_max(celery:task_failures:percentage5m / 100, 1)) * 15 +
+            (clamp_max(1 - (system:cpu:avg5m / 100), 1)) * 10
+          )

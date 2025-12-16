@@ -1,0 +1,209 @@
+{
+  "dashboard": {
+    "title": "System Resources",
+    "tags": ["meal-request", "system"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "CPU Usage",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "process_cpu_usage_percent",
+            "legendFormat": "CPU %"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "decimals": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 70, "color": "yellow"},
+                {"value": 90, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Memory Usage (GB)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+        "targets": [
+          {
+            "expr": "process_memory_bytes{type=\"rss\"} / 1073741824",
+            "legendFormat": "RSS"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "decgbytes",
+            "decimals": 2,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 1.5, "color": "yellow"},
+                {"value": 2.5, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Thread Count",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "process_threads",
+            "legendFormat": "threads"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "DB Connections",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(db_connection_pool_size{state=\"total\"})",
+            "legendFormat": "total"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "CPU Usage Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "process_cpu_usage_percent",
+            "legendFormat": "CPU Usage %"
+          }
+        ],
+        "yaxes": [
+          {"format": "percent", "label": "CPU %", "min": 0, "max": 100},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Memory Usage Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "process_memory_bytes{type=\"rss\"} / 1073741824",
+            "legendFormat": "RSS (GB)"
+          },
+          {
+            "expr": "process_memory_bytes{type=\"vms\"} / 1073741824",
+            "legendFormat": "VMS (GB)"
+          }
+        ],
+        "yaxes": [
+          {"format": "decgbytes", "label": "Memory"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Database Connection Pool",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "db_connection_pool_size{state=\"active\"}",
+            "legendFormat": "Active"
+          },
+          {
+            "expr": "db_connection_pool_size{state=\"idle\"}",
+            "legendFormat": "Idle"
+          },
+          {
+            "expr": "db_connection_pool_size{state=\"total\"}",
+            "legendFormat": "Total"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Connections"},
+          {"format": "short"}
+        ],
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "avg": true,
+          "max": true,
+          "current": true
+        }
+      },
+      {
+        "id": 8,
+        "title": "Redis Metrics",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {
+            "expr": "redis_connected_clients",
+            "legendFormat": "Connected Clients"
+          },
+          {
+            "expr": "redis_used_memory_bytes / 1048576",
+            "legendFormat": "Memory (MB)"
+          },
+          {
+            "expr": "redis_ops_per_second",
+            "legendFormat": "Ops/sec"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Value"},
+          {"format": "short"}
+        ]
+      }
+    ]
+  }
+}

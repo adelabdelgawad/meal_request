@@ -1,0 +1,47 @@
+{
+  "title": "تحليل الطلبات",
+  "exportResults": "تصدير النتائج",
+  "exportDetailed": "تصدير التحليل المفصل",
+  "dateRange": {
+    "from": "من",
+    "to": "إلى"
+  },
+  "chart": {
+    "title": "الطلبات المقبولة حسب الموظف",
+    "noData": "لا توجد بيانات للنطاق الزمني المحدد"
+  },
+  "table": {
+    "name": "الاسم بالإنجليزية",
+    "totalApproved": "إجمالي الطلبات المقبولة",
+    "employeeName": "اسم الموظف",
+    "totalRequests": "إجمالي الطلبات المقبولة",
+    "actions": "الإجراءات"
+  },
+  "filters": {
+    "from": "من",
+    "to": "إلى",
+    "selectDate": "اختر التاريخ",
+    "clearAll": "مسح الكل"
+  },
+  "stats": {
+    "totalEmployees": "إجمالي الموظفين",
+    "totalRequests": "إجمالي الطلبات"
+  },
+  "actions": {
+    "viewDetails": "عرض التفاصيل",
+    "exportResults": "تصدير النتائج",
+    "exportDetailed": "تصدير مفصل"
+  },
+  "alerts": {
+    "noDataToExport": "لا توجد بيانات للتصدير"
+  },
+  "modal": {
+    "description": "سجل طلبات الوجبات المفصل لهذا الموظف",
+    "noData": "لم يتم العثور على طلبات وجبات لهذا الموظف في النطاق الزمني المحدد",
+    "totalRecords": "إجمالي السجلات",
+    "requestTime": "وقت الطلب",
+    "mealType": "نوع الوجبة",
+    "requester": "مقدم الطلب",
+    "workingHours": "ساعات العمل"
+  }
+}

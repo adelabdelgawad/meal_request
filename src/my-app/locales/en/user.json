@@ -1,0 +1,12 @@
+{
+  "profile": "Profile",
+  "username": "Username",
+  "fullName": "Full Name",
+  "title": "Title",
+  "email": "Email",
+  "role": "Role",
+  "roles": "Roles",
+  "scopes": "Scopes",
+  "locale": "Locale",
+  "superAdmin": "Super Admin"
+}

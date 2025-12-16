@@ -1,0 +1,77 @@
+{
+  "title": "إدارة الطلبات",
+  "filters": {
+    "status": "الحالة",
+    "statusAny": "الكل",
+    "statusPending": "قيد الانتظار",
+    "statusApproved": "مقبول",
+    "statusRejected": "مرفوض",
+    "fromDate": "من",
+    "toDate": "إلى",
+    "search": "ابحث عن المُرسل...",
+    "searchByName": "البحث عن المُرسل...",
+    "clearAll": "مسح الكل"
+  },
+  "table": {
+    "id": "#",
+    "requester": "المُرسل",
+    "title": "المسمى",
+    "requestTime": "وقت الطلب",
+    "closedTime": "وقت الإغلاق",
+    "notes": "ملاحظات",
+    "mealType": "النوع",
+    "totalRequests": "الطلبات",
+    "accepted": "المقبول",
+    "status": "الحالة",
+    "actions": "الإجراءات"
+  },
+  "modal": {
+    "title": "تفاصيل الطلب",
+    "code": "الكود",
+    "employeeName": "اسم الموظف",
+    "employeeTitle": "المسمى الوظيفي",
+    "department": "القسم",
+    "shift": "الوردية",
+    "attendance": "وقت الحضور",
+    "notAttended": "لم يحضر",
+    "type": "النوع",
+    "acceptedLabel": "مقبول",
+    "notesLabel": "ملاحظات",
+    "cancel": "إلغاء",
+    "save": "حفظ التغييرات"
+  },
+  "actions": {
+    "view": "عرض التفاصيل",
+    "approve": "قبول",
+    "reject": "رفض",
+    "confirmApprove": "هل أنت متأكد من قبول هذا الطلب؟",
+    "confirmReject": "هل أنت متأكد من رفض هذا الطلب؟"
+  },
+  "dialogs": {
+    "approveTitle": "الموافقة على الطلب",
+    "approveMessage": "هل أنت متأكد من الموافقة على طلب الوجبة رقم:",
+    "rejectTitle": "رفض الطلب",
+    "rejectMessage": "هل أنت متأكد من رفض طلب الوجبة رقم:",
+    "approving": "جاري الموافقة...",
+    "rejecting": "جاري الرفض...",
+    "approve": "موافقة",
+    "reject": "رفض",
+    "cancel": "إلغاء"
+  },
+  "stats": {
+    "total": "جميع الطلبات"
+  },
+  "live": {
+    "active": "مباشر",
+    "inactive": "غير متصل",
+    "live": "مباشر",
+    "updating": "جاري التحديث..."
+  },
+  "noRequests": "لا توجد طلبات",
+  "success": {
+    "approved": "تم قبول الطلب بنجاح",
+    "rejected": "تم رفض الطلب بنجاح",
+    "updated": "تم تحديث الطلب بنجاح"
+  },
+  "error": "حدث خطأ"
+}

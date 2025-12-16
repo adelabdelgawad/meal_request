@@ -1,0 +1,15 @@
+--- a/app/api/auth/login/route.ts
++++ b/app/api/auth/login/route.ts
+@@ -104,9 +104,9 @@ export async function POST(request: NextRequest) {
+     }
+
+     // Extract tokens from response
+-    const accessToken = responseData.access_token as string;
+-    const refreshToken = responseData.refresh_token as string;
+-    const expiresIn = responseData.expires_in as number;
++    const accessToken = responseData.accessToken as string;
++    const refreshToken = responseData.refreshToken as string;
++    const expiresIn = responseData.expiresIn as number;
+
+     // Create response
+     const response = NextResponse.json(

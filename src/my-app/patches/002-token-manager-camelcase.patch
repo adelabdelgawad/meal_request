@@ -1,0 +1,64 @@
+--- a/lib/auth/token-manager.ts
++++ b/lib/auth/token-manager.ts
+@@ -1,19 +1,11 @@
+ /**
+  * Token Management Module
+- * Handles token storage, refresh, and validation
++ * DEPRECATED: Use src/lib/auth.ts and src/lib/api-client.ts instead
++ * This file is kept for backward compatibility during migration
+  */
+
+-import { serverApi } from "@/lib/http/axios-server";
+-
+-export interface TokenData {
+-  accessToken: string;
+-  refreshToken: string;
+-  expiresIn: number;
+-  tokenType: string;
+-}
+-
+-interface TokenRefreshResponse {
+-  access_token: string;
+-  token_type: string;
+-  expires_in: number;
+-}
++// Re-export from centralized auth module
++export { getAccessToken, setAccessToken } from '@/lib/api-client';
++export type { TokenResponse } from '@/types/auth.types';
+
+ /**
+@@ -50,28 +42,9 @@ export function clearTokens(): void {
+ /**
+  * Refresh the access token using the refresh token
++ * @deprecated Token refresh is now automatic in apiFetch() - see src/lib/api-client.ts
+  */
+ export async function refreshAccessToken(): Promise<string | null> {
+-  const currentRefreshToken = getRefreshToken();
+-
+-  if (!currentRefreshToken) {
+-    console.error("No refresh token available");
+-    return null;
+-  }
+-
+-  try {
+-    const result = await serverApi.post<TokenRefreshResponse>(
+-      "/api/v1/auth/refresh",
+-      { refresh_token: currentRefreshToken }
+-    );
+-
+-    if (result.ok && result.data) {
+-      const { access_token, expires_in } = result.data;
+-      setAccessToken(access_token);
+-      return access_token;
+-    }
+-
+-    return null;
+-  } catch (error) {
+-    console.error("Token refresh failed:", error);
+-    return null;
+-  }
++  console.warn('refreshAccessToken() is deprecated. Token refresh is now automatic in apiFetch().');
++  // Import and use new auth module if manual refresh is needed
++  const { refreshAccessToken: newRefresh } = await import('@/lib/api-client');
++  return newRefresh();
+ }

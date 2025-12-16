@@ -1,0 +1,19 @@
+{
+  "title": "Meal Request System",
+  "home": "Home",
+  "myRequests": "My Requests",
+  "settings": "Settings",
+  "setup": "Setup",
+  "users": "Users",
+  "domainUsers": "Domain Users",
+  "serviceAccounts": "Service Accounts",
+  "roles": "Roles",
+  "scheduler": "Scheduler",
+  "mealTypeSetup": "Meal Types",
+  "logout": "Logout",
+  "mealRequest": "Meal Request",
+  "requestsManagement": "Requests Management",
+  "requestsAnalysis": "Request Analysis",
+  "audit": "Audit Report",
+  "offline": "Offline"
+}

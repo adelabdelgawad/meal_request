@@ -1,0 +1,59 @@
+--- a/lib/api/auth.actions.ts
++++ b/lib/api/auth.actions.ts
+@@ -1,47 +1,17 @@
+ /**
+  * Client-side auth actions
+- * Uses the client-side Axios connector to communicate with /api/auth/* routes
++ * DEPRECATED: Use src/lib/auth.ts instead
++ * This file is kept for backward compatibility during migration
+  */
+
+-import { clientApi } from "@/lib/http/axios-client";
+-import { Result } from "@/lib/http/http-utils";
+-
+-export interface LoginRequest {
+-  username: string;
+-  password: string;
+-}
+-
+-export interface LoginResponse {
+-  access_token: string;
+-  refresh_token: string;
+-  token_type: string;
+-  expires_in: number;
+-  account: {
+-    id: number;
+-    username: string;
+-    title?: string;
+-    is_super_admin: boolean;
+-  };
+-  pages?: unknown[];
+-}
++// Import types from centralized location
++export type { LoginRequest, LoginResponse } from '@/types/auth.types';
++import { login, logout } from '@/lib/auth';
++import { Result } from '@/lib/http/http-utils';
+
+ /**
+  * Log in a user
++ * @deprecated Use `login()` from '@/lib/auth' instead
+  */
+-export async function loginAction(credentials: LoginRequest): Promise<Result<LoginResponse>> {
+-  return clientApi.post<LoginResponse>("/auth/login", credentials);
+-}
+-
+-/**
+- * Refresh access token
+- */
+-export async function refreshTokenAction(refreshToken: string): Promise<Result<{ access_token: string }>> {
+-  return clientApi.post("/auth/refresh", { refresh_token: refreshToken });
+-}
+-
+-/**
+- * Log out a user (revoke token)
+- */
+-export async function logoutAction(token: string): Promise<Result<{ message: string }>> {
+-  return clientApi.post("/auth/logout", { token });
++export async function loginAction(credentials: LoginRequest) {
++  return login(credentials);
+ }

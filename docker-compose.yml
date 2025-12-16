@@ -1,0 +1,356 @@
+services:
+  # MariaDB/MySQL database
+  database:
+    image: mariadb:11.2
+    container_name: meal-request-db
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    env_file:
+      - ./docker/env/.env.database
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ../src/backend/init-db:/docker-entrypoint-initdb.d
+    networks:
+      - meal-request-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max_connections=200
+      --innodb_buffer_pool_size=256M
+      --innodb_log_file_size=64M
+
+  # Redis service with optimized configuration
+  redis:
+    image: redis:7.2-alpine
+    container_name: meal-request-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --tcp-keepalive 300
+      --timeout 0
+      --tcp-backlog 511
+      --databases 16
+    ports:
+      - "6379:6379"
+    env_file:
+      - ./docker/env/.env.redis
+    volumes:
+      - redis_data:/data
+    networks:
+      - meal-request-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # Main FastAPI application
+  backend:
+    build:
+      context: ../src/backend
+      dockerfile: Dockerfile
+    container_name: meal-request-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - meal-request-network
+    env_file:
+      - ./docker/env/.env.backend
+    volumes:
+      - backend_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+
+
+  # Celery Worker - Processes background tasks
+  celery-worker:
+    build:
+      context: ../src/backend
+      dockerfile: Dockerfile
+    container_name: meal-request-celery-worker
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - meal-request-network
+    env_file:
+      - ./docker/env/.env.backend
+    volumes:
+      - ../src/backend/logs:/app/logs
+    command: celery -A celery_app.celery_app worker -P gevent --concurrency=10 --loglevel=info
+    healthcheck:
+      test: celery -A celery_app.celery_app inspect ping -d celery@$$HOSTNAME
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Flower - Celery monitoring tool
+  flower:
+    build:
+      context: ../src/backend
+      dockerfile: Dockerfile
+    container_name: meal-request-flower
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "5555:5555"
+    networks:
+      - meal-request-network
+    env_file:
+      - ./docker/env/.env.backend
+    command: celery -A celery_app.celery_app flower --port=5555
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5555"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ==============================================================================
+  # Frontend Application (Next.js)
+  # ==============================================================================
+
+  # Frontend - Next.js application
+  frontend:
+    build:
+      context: ../src/my-app
+      dockerfile: Dockerfile
+    container_name: meal-request-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    networks:
+      - meal-request-network
+    env_file:
+      - ./docker/env/.env.frontend
+
+  # ==============================================================================
+  # Development Tools
+  # ==============================================================================
+
+  # Redis Commander for Redis management (development only)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: meal-request-redis-commander
+    restart: unless-stopped
+    depends_on:
+      - redis
+    ports:
+      - "8081:8081"
+    networks:
+      - meal-request-network
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    profiles:
+      - tools
+
+  # ==============================================================================
+  # Monitoring Services (Prometheus & Grafana)
+  # ==============================================================================
+
+  # Prometheus - Metrics collection and alerting
+  prometheus:
+    image: prom/prometheus:v2.50.0
+    container_name: meal-request-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    networks:
+      - meal-request-network
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Grafana - Visualization and dashboards
+  grafana:
+    image: grafana/grafana:10.3.0
+    container_name: meal-request-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    env_file:
+      - ./docker/env/.env.grafana
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    networks:
+      - meal-request-network
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Node Exporter - System metrics (CPU, memory, disk, network)
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: meal-request-node-exporter
+    restart: unless-stopped
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host:ro
+    networks:
+      - meal-request-network
+    ports:
+      - "9100:9100"
+
+  # MariaDB Exporter - Database metrics
+  mariadb-exporter:
+    image: prom/mysqld-exporter:v0.15.1
+    container_name: meal-request-mariadb-exporter
+    restart: unless-stopped
+    environment:
+      - DATA_SOURCE_NAME=$${MYSQL_USER:-meal_user}:$${MYSQL_PASSWORD:-meal_password}@(database:3306)/
+    env_file:
+      - ./docker/env/.env.database
+    networks:
+      - meal-request-network
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - "9104:9104"
+
+# ==============================================================================
+# Named Volumes (Docker-managed persistent storage)
+# ==============================================================================
+volumes:
+  # Database
+  mariadb_data:
+    driver: local
+
+  # Cache
+  redis_data:
+    driver: local
+
+  # Application logs
+  backend_logs:
+    driver: local
+
+  # Monitoring
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# ==============================================================================
+# Networks
+# ==============================================================================
+networks:
+  meal-request-network:
+    driver: bridge
+
+# ==============================================================================
+# Usage Instructions
+# ==============================================================================
+#
+# IMPORTANT: Run all docker-compose commands from the docker/ directory!
+#   cd docker/
+#
+# Setup (first time only):
+#   1. Copy environment templates:
+#      cd env/
+#      cp .env.example.backend .env.backend
+#      cp .env.example.database .env.database
+#      cp .env.example.redis .env.redis
+#      cp .env.example.grafana .env.grafana
+#   2. Edit each .env.* file with your configuration
+#      IMPORTANT: Ensure DB passwords match between .env.database and .env.backend!
+#
+# Start all core services (database, redis, backend, frontend, monitoring):
+#   docker-compose up -d
+#
+# Start with development tools (Redis Commander):
+#   docker-compose --profile tools up -d
+#
+# Access the application:
+#   Frontend:          http://localhost:3000
+#   Backend API:       http://localhost:8000
+#   API Docs:          http://localhost:8000/docs
+#   Metrics Endpoint:  http://localhost:8000/metrics
+#   Prometheus:        http://localhost:9090
+#   Grafana:           http://localhost:3001 (admin/admin)
+#   Flower:            http://localhost:5555
+#   Node Exporter:     http://localhost:9100
+#   MariaDB Exporter:  http://localhost:9104
+#
+# Run database migrations:
+#   docker-compose exec backend alembic upgrade head
+#
+# Create a new migration:
+#   docker-compose exec backend alembic revision --autogenerate -m "Description"
+#
+# Run Celery services locally (recommended for development):
+#   1. docker-compose up redis -d
+#   2. cd ../src/backend
+#   3. celery -A celery_app.celery_app worker -P gevent --concurrency=10 --loglevel=info
+#   4. celery -A celery_app.celery_app beat --loglevel=info
+#   5. celery -A celery_app.celery_app flower --port=5555  # Optional
+#
+# Run Celery services in Docker:
+#   docker-compose up -d celery-worker celery-beat flower
+#
+# View logs:
+#   docker-compose logs -f [service_name]
+#
+# Stop all services:
+#   docker-compose down
+#
+# Stop and remove all data (WARNING: deletes database!):
+#   docker-compose down -v

@@ -1,0 +1,38 @@
+{
+  "title": "Audit Report",
+  "refresh": "Refresh",
+  "exportResults": "Export Results",
+  "search": "Search",
+  "searchPlaceholder": "Search audit records...",
+  "exportFilename": "audit_report",
+  "printTitle": "Audit Report",
+  "filters": {
+    "startDate": "Start Date",
+    "endDate": "End Date"
+  },
+  "columns": {
+    "code": "Code",
+    "name": "Name",
+    "title": "Title",
+    "department": "Department",
+    "requester": "Requester",
+    "requesterTitle": "Requester Title",
+    "requestTime": "Request Time",
+    "mealType": "Meal Type",
+    "attendanceIn": "Attendance In",
+    "attendanceOut": "Attendance Out",
+    "hours": "Hours",
+    "notes": "Notes"
+  },
+  "noData": "No audit data available",
+  "exportAll": "Export All",
+  "exportAllTooltip": "Export all audit records to CSV",
+  "printAll": "Print All",
+  "printAllTooltip": "Print all audit records",
+  "dateRange": "Date Range",
+  "totalRecords": "Total Records",
+  "errors": {
+    "dateRangeRequired": "Please select a date range",
+    "popupBlocked": "Please allow popups to print"
+  }
+}

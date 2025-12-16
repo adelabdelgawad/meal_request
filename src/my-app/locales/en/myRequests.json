@@ -1,0 +1,67 @@
+{
+  "title": "My Requests",
+  "description": "View and track all your submitted meal requests",
+  "table": {
+    "id": "#",
+    "requestTime": "Request Time",
+    "mealType": "Type",
+    "totalRequests": "Requests",
+    "accepted": "Accepted",
+    "status": "Status",
+    "closedTime": "Closed Time",
+    "notes": "Notes",
+    "actions": "Actions",
+    "viewDetails": "View Details",
+    "copyRequest": "Copy Request",
+    "deleteRequest": "Delete Request",
+    "cannotCopyPending": "Cannot copy pending requests",
+    "canOnlyDeletePending": "Can only delete pending requests"
+  },
+  "modal": {
+    "title": "Request Details",
+    "requestTime": "Request Time",
+    "mealType": "Meal Type",
+    "totalEmployees": "Total Employees",
+    "acceptedEmployees": "Accepted",
+    "closedOn": "Closed on",
+    "accepted": "accepted",
+    "rejected": "rejected",
+    "close": "Close",
+    "viewOnlyMessage": "This is a read-only view of your request",
+    "failedToLoad": "Failed to load details. Please try again.",
+    "noRequestLines": "No request lines found"
+  },
+  "lineTable": {
+    "rowNum": "#",
+    "code": "Code",
+    "employeeName": "Employee Name",
+    "title": "Title",
+    "department": "Department",
+    "shift": "Shift",
+    "status": "Status",
+    "notes": "Notes",
+    "actions": "Actions",
+    "deleteLine": "Delete Line"
+  },
+  "deleteRequest": {
+    "title": "Delete Request?",
+    "message": "Are you sure you want to delete request #{{requestId}}? This will remove all {{totalLines}} request lines. This action cannot be undone.",
+    "confirm": "Delete",
+    "cancel": "Cancel"
+  },
+  "deleteLine": {
+    "title": "Delete Employee Line?",
+    "message": "Are you sure you want to remove {{employeeName}} from this request? This action cannot be undone.",
+    "confirm": "Delete",
+    "cancel": "Cancel"
+  },
+  "copySuccess": "Request copied successfully",
+  "copySuccessMessage": "New request #{{id}} created with {{linesCopied}} lines",
+  "copyError": "Copy failed",
+  "deleteSuccess": "Request deleted successfully",
+  "deleteSuccessMessage": "Request #{{requestId}} and its {{totalLines}} lines have been deleted",
+  "deleteError": "Delete failed",
+  "deleteLineSuccess": "Employee removed successfully",
+  "deleteLineSuccessMessage": "{{employeeName}} has been removed from the request",
+  "deleteLineError": "Failed to remove employee"
+}

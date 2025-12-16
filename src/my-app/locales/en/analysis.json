@@ -1,0 +1,47 @@
+{
+  "title": "Request Analysis",
+  "exportResults": "Export Results",
+  "exportDetailed": "Export Detailed Analysis",
+  "dateRange": {
+    "from": "From",
+    "to": "To"
+  },
+  "chart": {
+    "title": "Accepted Requests by Employee",
+    "noData": "No data available for the selected date range"
+  },
+  "table": {
+    "name": "English Name",
+    "totalApproved": "Total Approved Requests",
+    "employeeName": "Employee Name",
+    "totalRequests": "Total Approved Requests",
+    "actions": "Actions"
+  },
+  "filters": {
+    "from": "From",
+    "to": "To",
+    "selectDate": "Select date",
+    "clearAll": "Clear all"
+  },
+  "stats": {
+    "totalEmployees": "Total Employees",
+    "totalRequests": "Total Requests"
+  },
+  "actions": {
+    "viewDetails": "View Details",
+    "exportResults": "Export Results",
+    "exportDetailed": "Export Detailed"
+  },
+  "alerts": {
+    "noDataToExport": "No data to export"
+  },
+  "modal": {
+    "description": "Detailed meal request history for this employee",
+    "noData": "No meal requests found for this employee in the selected date range",
+    "totalRecords": "Total Records",
+    "requestTime": "Request Time",
+    "mealType": "Meal Type",
+    "requester": "Requester",
+    "workingHours": "Working Hours"
+  }
+}
