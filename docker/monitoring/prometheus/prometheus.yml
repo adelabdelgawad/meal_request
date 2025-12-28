@@ -16,28 +16,47 @@ global:
 # Scrape Configurations
 # ==============================================================================
 scrape_configs:
-  # FastAPI Backend Application
+  # FastAPI Backend Application (Multiple Instances)
+  # Scrapes all backend instances for load-balanced deployment
   - job_name: 'fastapi'
     static_configs:
-      - targets: ['backend:8000']
+      - targets:
+          - 'backend:8000'         # Single instance (dev)
+          - 'backend-1:8000'       # Production instance 1
+          - 'backend-2:8000'       # Production instance 2
+          - 'backend-3:8000'       # Production instance 3
+        labels:
+          environment: 'production'
     metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
 
   # Node Exporter - System metrics (CPU, memory, disk, network)
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']
+    scrape_interval: 30s
 
   # MariaDB Exporter - Database metrics
   - job_name: 'mariadb'
     static_configs:
       - targets: ['mariadb-exporter:9104']
+    scrape_interval: 30s
+
+  # Redis Exporter - Cache metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+
+  # Nginx Exporter - Load balancer metrics (if added)
+  # - job_name: 'nginx'
+  #   static_configs:
+  #     - targets: ['nginx:9113']
+  #   scrape_interval: 30s
 
   # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
-
-  # Redis Exporter - Cache metrics (optional)
-  # - job_name: 'redis'
-  #   static_configs:
-  #     - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
