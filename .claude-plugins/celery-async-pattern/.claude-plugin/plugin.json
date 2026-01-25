@@ -1,0 +1,10 @@
+{
+  "name": "celery-async-pattern",
+  "version": "1.0.0",
+  "description": "Enforces the mandatory async event loop handling pattern for Celery tasks to prevent 'Event loop is closed' production crashes",
+  "author": {
+    "name": "Adel AbdElGawad"
+  },
+  "keywords": ["celery", "async", "gevent", "event-loop", "validation"],
+  "hooks": "./hooks/hooks.json"
+}

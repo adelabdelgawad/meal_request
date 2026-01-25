@@ -1,0 +1,10 @@
+{
+  "name": "rtl-safety",
+  "version": "1.0.0",
+  "description": "Checks React/Next.js components for RTL layout issues that break Arabic layouts",
+  "author": {
+    "name": "Adel AbdElGawad"
+  },
+  "keywords": ["rtl", "arabic", "layout", "tailwind", "i18n"],
+  "hooks": "./hooks/hooks.json"
+}

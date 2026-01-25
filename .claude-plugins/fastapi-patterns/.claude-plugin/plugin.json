@@ -1,0 +1,20 @@
+{
+  "name": "fastapi-patterns",
+  "version": "1.0.0",
+  "description": "Enforce FastAPI + SQLAlchemy + Pydantic patterns for consistent backend development",
+  "author": {
+    "name": "Backend Team",
+    "email": "backend@example.com"
+  },
+  "keywords": [
+    "fastapi",
+    "sqlalchemy",
+    "pydantic",
+    "validation",
+    "patterns",
+    "backend"
+  ],
+  "commands": "./commands/",
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json"
+}

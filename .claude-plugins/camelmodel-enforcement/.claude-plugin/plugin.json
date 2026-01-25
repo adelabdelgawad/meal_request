@@ -1,0 +1,10 @@
+{
+  "name": "camelmodel-enforcement",
+  "version": "1.0.0",
+  "description": "Enforces CamelModel inheritance for all Pydantic schemas to ensure camelCase JSON serialization",
+  "author": {
+    "name": "Adel AbdElGawad"
+  },
+  "keywords": ["pydantic", "schema", "camelcase", "fastapi", "validation"],
+  "hooks": "./hooks/hooks.json"
+}

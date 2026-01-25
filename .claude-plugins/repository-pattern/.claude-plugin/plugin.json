@@ -1,0 +1,10 @@
+{
+  "name": "repository-pattern",
+  "version": "1.0.0",
+  "description": "Enforces proper separation of concerns between routers, services, and repositories",
+  "author": {
+    "name": "Adel AbdElGawad"
+  },
+  "keywords": ["architecture", "layering", "repository", "service", "router"],
+  "hooks": "./hooks/hooks.json"
+}

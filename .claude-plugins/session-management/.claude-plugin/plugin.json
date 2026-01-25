@@ -1,0 +1,10 @@
+{
+  "name": "session-management",
+  "version": "1.0.0",
+  "description": "Checks for proper database session lifecycle management in FastAPI endpoints and services",
+  "author": {
+    "name": "Adel AbdElGawad"
+  },
+  "keywords": ["database", "session", "sqlalchemy", "lifecycle", "fastapi"],
+  "hooks": "./hooks/hooks.json"
+}

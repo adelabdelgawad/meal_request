@@ -1,0 +1,10 @@
+{
+  "name": "audit-logging",
+  "version": "1.0.0",
+  "description": "Checks that service methods include audit logging for mutations",
+  "author": {
+    "name": "Adel AbdElGawad"
+  },
+  "keywords": ["audit", "logging", "compliance", "service"],
+  "hooks": "./hooks/hooks.json"
+}
