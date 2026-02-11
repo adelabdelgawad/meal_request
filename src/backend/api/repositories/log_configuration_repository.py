@@ -7,29 +7,29 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import DatabaseError
-from db.models import LogConfiguration
+from db.model import LogConfiguration
+from .base import BaseRepository
 
 
-class LogConfigurationRepository:
+class LogConfigurationRepository(BaseRepository[LogConfiguration]):
     """Repository for LogConfiguration entity."""
 
-    def __init__(self):
-        pass
+        super().__init__(session)
 
-    async def create(self, session: AsyncSession, log_data: dict) -> LogConfiguration:
+    async def create(self, log_data: dict) -> LogConfiguration:
         """Create a new configuration audit log entry."""
         try:
             log = LogConfiguration(**log_data)
-            session.add(log)
-            await session.flush()
+            self.session.add(log)
+            await self.session.flush()
             return log
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to create configuration audit log: {str(e)}")
 
-    async def get_by_id(self, session: AsyncSession, log_id: str) -> Optional[LogConfiguration]:
+    async def get_by_id(self, log_id: str) -> Optional[LogConfiguration]:
         """Get a configuration audit log by ID."""
-        result = await session.execute(
+        result = await self.session.execute(
             select(LogConfiguration).where(LogConfiguration.id == log_id)
         )
         return result.scalar_one_or_none()
@@ -74,13 +74,13 @@ class LogConfigurationRepository:
 
         # Get total count
         count_query = select(func.count()).select_from((query).subquery())
-        count_result = await session.execute(count_query)
+        count_result = await self.session.execute(count_query)
         total = count_result.scalar() or 0
 
         # Apply pagination
         offset = calculate_offset(page, per_page)
-        result = await session.execute(query.offset(offset).limit(per_page))
-        return result.scalars().all(), total
+        result = await self.session.execute(query.offset(offset).limit(per_page))
+        return list(result.scalars().all()), total
 
     async def get_by_entity(
         self,
@@ -90,7 +90,7 @@ class LogConfigurationRepository:
         limit: int = 50
     ) -> List[LogConfiguration]:
         """Get audit logs for a specific entity."""
-        result = await session.execute(
+        result = await self.session.execute(
             select(LogConfiguration)
             .where(
                 and_(
@@ -110,7 +110,7 @@ class LogConfigurationRepository:
         limit: int = 100
     ) -> List[LogConfiguration]:
         """Get audit logs for a specific entity type."""
-        result = await session.execute(
+        result = await self.session.execute(
             select(LogConfiguration)
             .where(LogConfiguration.entity_type == entity_type)
             .order_by(LogConfiguration.timestamp.desc())
@@ -125,7 +125,7 @@ class LogConfigurationRepository:
         limit: int = 50
     ) -> List[LogConfiguration]:
         """Get audit logs for a specific admin."""
-        result = await session.execute(
+        result = await self.session.execute(
             select(LogConfiguration)
             .where(LogConfiguration.admin_id == admin_id)
             .order_by(LogConfiguration.timestamp.desc())

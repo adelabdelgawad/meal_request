@@ -7,27 +7,27 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import DatabaseError, NotFoundError
-from db.models import MealRequestLine, MealRequest, Employee, Department, MealType, User, MealRequestStatus
+from db.model import MealRequestLine, MealRequest, Employee, Department, MealType, User, MealRequestStatus
+from .base import BaseRepository
 from utils.app_schemas import MealRequestLineResponse, RequestDataResponse, AuditRecordResponse
 
 
-class MealRequestLineRepository:
+class MealRequestLineRepository(BaseRepository[MealRequestLine]):
     """Repository for MealRequestLine entity."""
 
-    def __init__(self):
-        pass
+        super().__init__(session)
 
-    async def create(self, session: AsyncSession, line: MealRequestLine) -> MealRequestLine:
+    async def create(self, line: MealRequestLine) -> MealRequestLine:
         try:
-            session.add(line)
-            await session.flush()
+            self.session.add(line)
+            await self.session.flush()
             return line
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to create meal request line: {str(e)}")
 
-    async def get_by_id(self, session: AsyncSession, line_id: int) -> Optional[MealRequestLine]:
-        result = await session.execute(
+    async def get_by_id(self, line_id: int) -> Optional[MealRequestLine]:
+        result = await self.session.execute(
             select(MealRequestLine).where(
                 MealRequestLine.id == line_id,
                 MealRequestLine.is_deleted == False,  # noqa: E712
@@ -58,20 +58,20 @@ class MealRequestLineRepository:
         count_query = select(func.count()).select_from((query).subquery())
 
 
-        count_result = await session.execute(count_query)
+        count_result = await self.session.execute(count_query)
 
 
         total = count_result.scalar() or 0
 
         offset = calculate_offset(page, per_page)
-        result = await session.execute(
+        result = await self.session.execute(
             query.offset(offset).limit(per_page)
         )
-        return result.scalars().all(), total
+        return list(result.scalars().all()), total
 
-    async def get_by_request(self, session: AsyncSession, request_id: int) -> List[MealRequestLine]:
+    async def get_by_request(self, request_id: int) -> List[MealRequestLine]:
         """Get all lines for a specific request."""
-        result = await session.execute(
+        result = await self.session.execute(
             select(MealRequestLine).where(
                 MealRequestLine.meal_request_id == request_id,
                 MealRequestLine.is_deleted == False,  # noqa: E712
@@ -79,36 +79,37 @@ class MealRequestLineRepository:
         )
         return result.scalars().all()
 
-    async def update(self, session: AsyncSession, line_id: int, line_data: dict) -> MealRequestLine:
-        line = await self.get_by_id(session, line_id)
+    async def update(self, line_id: int, line_data: dict) -> MealRequestLine:
+        line = await self.get_by_id(line_id)
         if not line:
-            raise NotFoundError(entity="MealRequestLine", identifier=line_id)
+            raise NotFoundError(f"MealRequestLine with ID {line_id} not found")
 
         try:
             for key, value in line_data.items():
                 if value is not None and hasattr(line, key):
                     setattr(line, key, value)
 
-            await session.flush()
+            await self.session.flush()
             return line
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to update meal request line: {str(e)}")
 
-    async def delete(self, session: AsyncSession, line_id: int) -> None:
-        line = await self.get_by_id(session, line_id)
+    async def delete(self, line_id: int) -> None:
+        line = await self.get_by_id(line_id)
         if not line:
-            raise NotFoundError(entity="MealRequestLine", identifier=line_id)
+            raise NotFoundError(f"MealRequestLine with ID {line_id} not found")
 
-        await session.delete(line)
-        await session.flush()
+        await self.session.delete(line)
+        await self.session.flush()
 
     # Specialized CRUD compatibility methods
     async def read_meal_request_line_for_requests_page(
         self, session: AsyncSession, request_id: int
     ) -> Optional[List[MealRequestLineResponse]]:
         """Retrieve meal request lines for a specific request with detailed information."""
-        from db.models import MealRequestLineAttendance
+        from db.model import MealRequestLineAttendance
+from .base import BaseRepository
         from utils.app_schemas import TmsAttendanceResponse
 
         stmt = (
@@ -142,7 +143,7 @@ class MealRequestLineRepository:
         )
 
         try:
-            result = await session.execute(stmt)
+            result = await self.session.execute(stmt)
             meal_request_lines = result.all()
 
             if not meal_request_lines:
@@ -211,7 +212,7 @@ class MealRequestLineRepository:
 
         try:
             logger.info(f"Fetching closed requests with accept status - start_time: {start_time}, end_time: {end_time}")
-            result = await session.execute(stmt)
+            result = await self.session.execute(stmt)
             rows = result.fetchall()
             logger.info(f"Found {len(rows)} departments with accepted requests")
 
@@ -228,7 +229,8 @@ class MealRequestLineRepository:
         end_time: Optional[datetime] = None,
     ) -> List[AuditRecordResponse]:
         """Fetch accepted meal request lines for closed requests with audit details including attendance."""
-        from db.models import MealRequestLineAttendance
+        from db.model import MealRequestLineAttendance
+from .base import BaseRepository
 
         stmt = (
             select(
@@ -273,7 +275,7 @@ class MealRequestLineRepository:
             stmt = stmt.where(MealRequest.request_time <= end_time)
 
         try:
-            result = await session.execute(stmt)
+            result = await self.session.execute(stmt)
             records = result.fetchall()
 
             return [AuditRecordResponse.model_validate(row) for row in records]
@@ -294,19 +296,19 @@ class MealRequestLineRepository:
                 )
             )
 
-            result = await session.execute(stmt)
+            result = await self.session.execute(stmt)
             meal_order_lines = result.scalars().all()
 
             if meal_order_lines:
                 for line in meal_order_lines:
                     line.is_accepted = accepted
 
-                await session.flush()
+                await self.session.flush()
                 return meal_order_lines
 
             return None
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to update meal order lines: {str(e)}")
 
     async def soft_delete_line(
@@ -350,12 +352,12 @@ class MealRequestLineRepository:
                 .where(MealRequest.id == request_id)
                 .with_for_update()  # 🔒 Lock parent request
             )
-            result = await session.execute(stmt)
+            result = await self.session.execute(stmt)
             request = result.scalar_one_or_none()
 
             # Step 2: Validate parent request exists
             if not request:
-                raise NotFoundError(entity="MealRequest", identifier=request_id)
+                raise NotFoundError(f"MealRequest with ID {request_id} not found")
 
             # Step 3: Validate ownership
             if request.requester_id != user_id:
@@ -374,7 +376,7 @@ class MealRequestLineRepository:
             # Step 5: Validate parent request status is PENDING
             if request.status_id != pending_status.id:
                 # Get current status name for error message
-                current_status = await session.get(MealRequestStatus, request.status_id)
+                current_status = await self.session.get(MealRequestStatus, request.status_id)
                 status_name = current_status.name_en if current_status else "Unknown"
                 raise ValidationError(
                     f"Cannot delete line from meal request with status: {status_name}. "
@@ -382,9 +384,9 @@ class MealRequestLineRepository:
                 )
 
             # Step 6: Get the line
-            line = await session.get(MealRequestLine, line_id)
+            line = await self.session.get(MealRequestLine, line_id)
             if not line:
-                raise NotFoundError(entity="MealRequestLine", identifier=line_id)
+                raise NotFoundError(f"MealRequestLine with ID {line_id} not found")
 
             # Step 7: Validate line belongs to the request
             if line.meal_request_id != request_id:
@@ -400,12 +402,12 @@ class MealRequestLineRepository:
             line.is_deleted = True
             line.updated_at = datetime.now(timezone.utc)
 
-            await session.flush()
+            await self.session.flush()
             return line
 
         except (NotFoundError, AuthorizationError, ValidationError):
             # Re-raise known exceptions
             raise
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to soft delete meal request line: {str(e)}")

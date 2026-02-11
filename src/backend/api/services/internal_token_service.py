@@ -1,3 +1,5 @@
+from sqlalchemy.ext.asyncio import AsyncSession
+
 """
 Internal Token Service - Manages internal service token generation and verification.
 

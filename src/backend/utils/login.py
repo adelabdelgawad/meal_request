@@ -11,7 +11,7 @@ from core.security import verify_password
 from db.schemas import UserCreate, RolePermissionCreate
 from db.schemas import User as UserSchema
 from utils.app_schemas import UserAttributes
-from utils.custom_exceptions import AuthorizationError
+from core.exceptions import AuthorizationError
 from utils.ldap import authenticate
 
 logger = logging.getLogger(__name__)
@@ -87,21 +87,14 @@ class Login:
 
             if self.user:
                 self.is_authenticated = True
-                logger.info(
-                    f"User '{self.username}' authenticated successfully."
-                )
+                logger.info(f"User '{self.username}' authenticated successfully.")
             else:
-                logger.warning(
-                    f"Authentication failed for user: {self.username}"
-                )
+                logger.warning(f"Authentication failed for user: {self.username}")
         except AuthorizationError:
-            raise AuthorizationError(
-                "You are not Authorized to Access the System"
-            )
+            raise AuthorizationError("You are not Authorized to Access the System")
         except Exception as e:
             logger.error(
-                f"Authentication process failed for user '{
-                         self.username}'. Error: {e}"
+                f"Authentication process failed for user '{self.username}'. Error: {e}"
             )
             logger.debug(traceback.format_exc())
 
@@ -114,19 +107,13 @@ class Login:
             bool: True if authentication and account setup are successful, False otherwise.
         """
         try:
-            logger.info(
-                f"Attempting domain authentication for user: {
-                        self.username}"
-            )
+            logger.info(f"Attempting domain authentication for user: {self.username}")
             domain_user: Optional[UserAttributes] = await authenticate(
                 self.username, self.password
             )
 
             if not domain_user:
-                logger.warning(
-                    f"LDAP authentication failed for user: {
-                               self.username}"
-                )
+                logger.warning(f"LDAP authentication failed for user: {self.username}")
                 return False
 
             existing_user = await self._user_service._repo.read_account(
@@ -143,15 +130,10 @@ class Login:
                     await self.session.commit()
                     await self.session.refresh(existing_user)
 
-                    logger.info(
-                        f"Activated pre-created user account: {self.username}"
-                    )
+                    logger.info(f"Activated pre-created user account: {self.username}")
 
                 self.user = UserSchema.model_validate(existing_user)
-                logger.info(
-                    f"Local account found for domain user: {
-                            self.username}"
-                )
+                logger.info(f"Local account found for domain user: {self.username}")
                 return True
 
             # Create local account if it doesn't exist
@@ -164,7 +146,9 @@ class Login:
                     f"No security user found for domain user: {self.username}. "
                     f"This user may be a manual or LDAP-only user."
                 )
-                raise AuthorizationError("No HRIS security record found. Please contact your administrator.")
+                raise AuthorizationError(
+                    "No HRIS security record found. Please contact your administrator."
+                )
 
             new_user_data = UserCreate(
                 username=self.username,
@@ -181,27 +165,27 @@ class Login:
                 from api.repositories.role_repository import RoleRepository
 
                 role_repo = RoleRepository()
-                requester_role = await role_repo.get_by_name_en(self.session, "Requester")
+                requester_role = await role_repo.get_by_name_en(
+                    self.session, "Requester"
+                )
 
                 if requester_role:
                     await self._role_service.create_role_permission(
                         self.session,
-                        RolePermissionCreate(role_id=str(requester_role.id), user_id=new_user.id),
+                        RolePermissionCreate(
+                            role_id=str(requester_role.id), user_id=new_user.id
+                        ),
                     )
                 else:
-                    logger.error("Requester role not found - cannot assign default role")
+                    logger.error(
+                        "Requester role not found - cannot assign default role"
+                    )
 
                 self.user = UserSchema.model_validate(new_user)
-                logger.info(
-                    f"Local account created for domain user: {
-                            self.username}"
-                )
+                logger.info(f"Local account created for domain user: {self.username}")
                 return True
 
-            logger.error(
-                f"Failed to create local account for user: {
-                         self.username}"
-            )
+            logger.error(f"Failed to create local account for user: {self.username}")
             return False
 
         except AuthorizationError:
@@ -209,8 +193,7 @@ class Login:
 
         except Exception as e:
             logger.error(
-                f"Domain authentication error for user '{
-                         self.username}'. Error: {e}"
+                f"Domain authentication error for user '{self.username}'. Error: {e}"
             )
             logger.debug(traceback.format_exc())
             return False
@@ -222,47 +205,34 @@ class Login:
         Password is verified using bcrypt hash comparison.
         """
         try:
-            logger.info(
-                f"Attempting local authentication for user: {
-                        self.username}"
-            )
+            logger.info(f"Attempting local authentication for user: {self.username}")
             account = await self._user_service._repo.read_account(
                 self.session, username=self.username
             )
 
             if not account:
-                logger.warning(
-                    f"No local account found for user: {
-                               self.username}"
-                )
+                logger.warning(f"No local account found for user: {self.username}")
                 return
 
             # Only allow local authentication for admin users
             if not account.is_super_admin:
                 logger.warning(
-                    f"Local authentication denied for non-admin user: {
-                               self.username}"
+                    f"Local authentication denied for non-admin user: {self.username}"
                 )
                 return
 
             # Verify password exists and matches
             if not account.password:
-                logger.warning(
-                    f"Admin account '{self.username}' has no password set"
-                )
+                logger.warning(f"Admin account '{self.username}' has no password set")
                 return
 
             if not self.password:
-                logger.warning(
-                    f"No password provided for admin user: {self.username}"
-                )
+                logger.warning(f"No password provided for admin user: {self.username}")
                 return
 
             # Verify password using bcrypt
             if not verify_password(self.password, account.password):
-                logger.warning(
-                    f"Invalid password for admin user: {self.username}"
-                )
+                logger.warning(f"Invalid password for admin user: {self.username}")
                 return
 
             # Authentication successful
@@ -273,7 +243,6 @@ class Login:
 
         except Exception as e:
             logger.error(
-                f"Local authentication error for user '{
-                         self.username}'. Error: {e}"
+                f"Local authentication error for user '{self.username}'. Error: {e}"
             )
             logger.debug(traceback.format_exc())

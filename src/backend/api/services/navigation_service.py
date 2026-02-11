@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Set
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.repositories.page_repository import PageRepository
-from db.models import Page
+from db.model import Page
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ class NavigationService:
     """
 
     def __init__(self):
-        self._page_repo = PageRepository()
+        self._page_repo = PageRepository(self.session)
 
     async def build_navigation_tree(
         self,

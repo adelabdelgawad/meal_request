@@ -7,26 +7,26 @@ from sqlalchemy import and_, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import DatabaseError, NotFoundError
-from db.models import DepartmentAssignment
+from db.model import DepartmentAssignment
+from .base import BaseRepository
 
 
-class DepartmentAssignmentRepository:
+class DepartmentAssignmentRepository(BaseRepository[DepartmentAssignment]):
     """Repository for DepartmentAssignment entity."""
 
-    def __init__(self):
-        pass
+        super().__init__(session)
 
-    async def create(self, session: AsyncSession, assignment: DepartmentAssignment) -> DepartmentAssignment:
+    async def create(self, assignment: DepartmentAssignment) -> DepartmentAssignment:
         try:
-            session.add(assignment)
-            await session.flush()
+            self.session.add(assignment)
+            await self.session.flush()
             return assignment
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to create assignment: {str(e)}")
 
-    async def get_by_id(self, session: AsyncSession, assignment_id: int) -> Optional[DepartmentAssignment]:
-        result = await session.execute(
+    async def get_by_id(self, assignment_id: int) -> Optional[DepartmentAssignment]:
+        result = await self.session.execute(
             select(DepartmentAssignment).where(DepartmentAssignment.id == assignment_id)
         )
         return result.scalar_one_or_none()
@@ -54,16 +54,16 @@ class DepartmentAssignmentRepository:
         count_query = select(func.count()).select_from((query).subquery())
 
 
-        count_result = await session.execute(count_query)
+        count_result = await self.session.execute(count_query)
 
 
         total = count_result.scalar() or 0
 
         offset = calculate_offset(page, per_page)
-        result = await session.execute(
+        result = await self.session.execute(
             query.offset(offset).limit(per_page)
         )
-        return result.scalars().all(), total
+        return list(result.scalars().all()), total
 
     async def get_by_employee_and_department(
         self,
@@ -72,7 +72,7 @@ class DepartmentAssignmentRepository:
         department_id: int,
     ) -> Optional[DepartmentAssignment]:
         """Get department assignment by user and department."""
-        result = await session.execute(
+        result = await self.session.execute(
             select(DepartmentAssignment).where(
                 and_(
                     DepartmentAssignment.user_id == user_id,
@@ -97,7 +97,7 @@ class DepartmentAssignmentRepository:
         Returns:
             List of active manual department assignments
         """
-        result = await session.execute(
+        result = await self.session.execute(
             select(DepartmentAssignment).where(
                 and_(
                     DepartmentAssignment.user_id == user_id,
@@ -108,7 +108,7 @@ class DepartmentAssignmentRepository:
         )
         return list(result.scalars().all())
 
-    async def deactivate_hris_assignments(self, session: AsyncSession) -> int:
+    async def deactivate_hris_assignments(self) -> int:
         """
         Deactivate existing HRIS-synced department assignments only.
 
@@ -133,29 +133,29 @@ class DepartmentAssignmentRepository:
             )
             .values(is_active=False, updated_at=func.now())
         )
-        result = await session.execute(stmt)
+        result = await self.session.execute(stmt)
         return result.rowcount or 0
 
-    async def update(self, session: AsyncSession, assignment_id: int, assignment_data: dict) -> DepartmentAssignment:
-        assignment = await self.get_by_id(session, assignment_id)
+    async def update(self, assignment_id: int, assignment_data: dict) -> DepartmentAssignment:
+        assignment = await self.get_by_id(assignment_id)
         if not assignment:
-            raise NotFoundError(entity="DepartmentAssignment", identifier=assignment_id)
+            raise NotFoundError(f"DepartmentAssignment with ID {assignment_id} not found")
 
         try:
             for key, value in assignment_data.items():
                 if value is not None and hasattr(assignment, key):
                     setattr(assignment, key, value)
 
-            await session.flush()
+            await self.session.flush()
             return assignment
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to update assignment: {str(e)}")
 
-    async def delete(self, session: AsyncSession, assignment_id: int) -> None:
-        assignment = await self.get_by_id(session, assignment_id)
+    async def delete(self, assignment_id: int) -> None:
+        assignment = await self.get_by_id(assignment_id)
         if not assignment:
-            raise NotFoundError(entity="DepartmentAssignment", identifier=assignment_id)
+            raise NotFoundError(f"DepartmentAssignment with ID {assignment_id} not found")
 
-        await session.delete(assignment)
-        await session.flush()
+        await self.session.delete(assignment)
+        await self.session.flush()

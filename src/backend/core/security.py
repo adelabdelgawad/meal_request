@@ -87,17 +87,17 @@ def create_jwt(
     """
     import jwt
 
-    from settings import settings
+    from core.config import settings
 
-    if not settings.JWT_SECRET_KEY:
+    if not settings.sec.jwt_secret_key:
         raise ValueError("JWT_SECRET_KEY not configured in settings")
 
     # Set default expiration based on token type
     if expires_delta is None:
         if token_type == "access":
-            expires_delta = timedelta(minutes=15)
+            expires_delta = timedelta(minutes=settings.session.access_token_minutes)
         elif token_type == "refresh":
-            expires_delta = timedelta(days=30)
+            expires_delta = timedelta(days=settings.session.refresh_lifetime_days)
         else:
             expires_delta = timedelta(hours=1)
 
@@ -121,8 +121,8 @@ def create_jwt(
     # Encode token
     encoded_jwt = jwt.encode(
         to_encode,
-        settings.JWT_SECRET_KEY,
-        algorithm=settings.JWT_ALGORITHM,
+        settings.sec.jwt_secret_key,
+        algorithm=settings.sec.jwt_algorithm,
     )
 
     return encoded_jwt, jti
@@ -151,16 +151,16 @@ def decode_jwt(token: str) -> Dict:
     """
     import jwt
 
-    from settings import settings
+    from core.config import settings
 
-    if not settings.JWT_SECRET_KEY:
+    if not settings.sec.jwt_secret_key:
         raise ValueError("JWT_SECRET_KEY not configured in settings")
 
     try:
         payload = jwt.decode(
             token,
-            settings.JWT_SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM],
+            settings.sec.jwt_secret_key,
+            algorithms=[settings.sec.jwt_algorithm],
         )
         return payload
     except jwt.ExpiredSignatureError:

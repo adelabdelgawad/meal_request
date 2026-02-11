@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.repositories.domain_user_repository import DomainUserRepository
 from core.exceptions import ConflictError, DatabaseError, NotFoundError
-from db.models import DomainUser
+from db.model import DomainUser
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class DomainUserService:
 
     def __init__(self):
         """Initialize service."""
-        self._repo = DomainUserRepository()
+        self._repo = DomainUserRepository(self.session)
 
     async def create_domain_user(
         self,

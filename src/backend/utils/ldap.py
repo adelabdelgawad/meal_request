@@ -7,7 +7,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from ldap3 import ALL, SIMPLE, Connection, Server
 
-from settings import settings
+from core.config import settings
 from utils.app_schemas import UserAttributes
 from utils.ad_client import get_ad_client, ADAuthTimeout, ADAuthUnavailable, ADAuthError
 
@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # Load environment variables
-DOMAIN = settings.AD_DOMAIN
-DC = settings.AD_SERVER
+DOMAIN = settings.ldap.domain
+DC = settings.ldap.server
 
 
 class LDAPAuthenticator:
@@ -71,8 +71,7 @@ class LDAPAuthenticator:
 
         except Exception as e:
             logger.error(
-                f"Authentication failed for user {
-                username}: {e}",
+                f"Authentication failed for user {username}: {e}",
                 exc_info=True,
             )
             return False
@@ -119,8 +118,7 @@ class AuthDependency:
                 raise HTTPException(status_code=401, detail="Invalid credentials")
         except (ADAuthTimeout, ADAuthUnavailable):
             raise HTTPException(
-                status_code=503,
-                detail="Authentication service temporarily unavailable"
+                status_code=503, detail="Authentication service temporarily unavailable"
             )
         except ADAuthError as e:
             logger.error(f"AD authentication error: {e}")
@@ -139,9 +137,7 @@ async def get_user_attributes(username: str) -> Optional[UserAttributes]:
         Optional[UserAttributes]: A UserAttributes object if the user is found, otherwise None.
     """
     if not BONSAI_AVAILABLE:
-        logger.warning(
-            "bonsai not available - returning None for user attributes"
-        )
+        logger.warning("bonsai not available - returning None for user attributes")
         return None
 
     try:
@@ -149,8 +145,8 @@ async def get_user_attributes(username: str) -> Optional[UserAttributes]:
         client = bonsai.LDAPClient(f"ldap://{DC}")
         client.set_credentials(
             "SIMPLE",
-            user=f"{settings.SERVICE_ACCOUNT}@{DOMAIN}",
-            password=settings.SERVICE_PASSWORD,
+            user=f"{settings.ldap.service_account}@{DOMAIN}",
+            password=settings.ldap.service_password,
         )
 
         # Connect with async support using context manager
@@ -185,9 +181,7 @@ ldap_authenticator = LDAPAuthenticator(DOMAIN, DC)
 security = AuthDependency(ldap_authenticator)
 
 
-async def authenticate(
-    username: str, password: str
-) -> Optional[UserAttributes]:
+async def authenticate(username: str, password: str) -> Optional[UserAttributes]:
     """
     Check LDAP authentication for the given username and password.
 

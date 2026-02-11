@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from core.exceptions import DatabaseError, NotFoundError
-from db.models import (
+from db.model import (
     ScheduledJob,
     ScheduledJobExecution,
     ScheduledJobLock,
@@ -27,15 +27,16 @@ logger = logging.getLogger(__name__)
 class SchedulerRepository:
     """Repository for scheduler-related database operations."""
 
-    def __init__(self):
-        pass
+    def __init__(self, session: AsyncSession):
+        """Initialize scheduler repository with session."""
+        self.session = session
 
     # -------------------
     # Lookup Table Operations
     # -------------------
 
     async def list_task_functions(
-        self, session: AsyncSession, is_active: Optional[bool] = True
+        self, is_active: Optional[bool] = True
     ) -> List[TaskFunction]:
         """Get all task functions."""
         query = select(TaskFunction)
@@ -108,7 +109,9 @@ class SchedulerRepository:
     ) -> Optional[SchedulerExecutionStatus]:
         """Get an execution status by ID."""
         result = await session.execute(
-            select(SchedulerExecutionStatus).where(SchedulerExecutionStatus.id == status_id)
+            select(SchedulerExecutionStatus).where(
+                SchedulerExecutionStatus.id == status_id
+            )
         )
         return result.scalar_one_or_none()
 
@@ -117,7 +120,9 @@ class SchedulerRepository:
     ) -> Optional[SchedulerExecutionStatus]:
         """Get an execution status by its code."""
         result = await session.execute(
-            select(SchedulerExecutionStatus).where(SchedulerExecutionStatus.code == code)
+            select(SchedulerExecutionStatus).where(
+                SchedulerExecutionStatus.code == code
+            )
         )
         return result.scalar_one_or_none()
 
@@ -201,15 +206,25 @@ class SchedulerRepository:
             query = query.where(ScheduledJob.task_function_id == task_function_id)
 
         # Order by priority (desc), then by task function name
-        query = query.order_by(ScheduledJob.priority.desc(), ScheduledJob.created_at.desc())
+        query = query.order_by(
+            ScheduledJob.priority.desc(), ScheduledJob.created_at.desc()
+        )
 
         # Count query
         count_query = select(func.count()).select_from(
             select(ScheduledJob.id)
             .where(ScheduledJob.is_active)
-            .where(True if is_enabled is None else ScheduledJob.is_enabled == is_enabled)
-            .where(True if job_type_id is None else ScheduledJob.job_type_id == job_type_id)
-            .where(True if task_function_id is None else ScheduledJob.task_function_id == task_function_id)
+            .where(
+                True if is_enabled is None else ScheduledJob.is_enabled == is_enabled
+            )
+            .where(
+                True if job_type_id is None else ScheduledJob.job_type_id == job_type_id
+            )
+            .where(
+                True
+                if task_function_id is None
+                else ScheduledJob.task_function_id == task_function_id
+            )
             .subquery()
         )
         count_result = await session.execute(count_query)
@@ -220,9 +235,7 @@ class SchedulerRepository:
         result = await session.execute(query.offset(offset).limit(per_page))
         return list(result.scalars().all()), total
 
-    async def get_enabled_jobs(
-        self, session: AsyncSession
-    ) -> List[ScheduledJob]:
+    async def get_enabled_jobs(self, session: AsyncSession) -> List[ScheduledJob]:
         """Get all enabled and active jobs."""
         result = await session.execute(
             select(ScheduledJob)
@@ -246,7 +259,7 @@ class SchedulerRepository:
         """Update an existing job."""
         job = await self.get_job_by_id(session, job_id, include_relations=False)
         if not job:
-            raise NotFoundError(entity="ScheduledJob", identifier=job_id)
+            raise NotFoundError(f"ScheduledJob with ID job_id not found")
 
         try:
             for key, value in update_data.items():
@@ -260,13 +273,11 @@ class SchedulerRepository:
             await session.rollback()
             raise DatabaseError(f"Failed to update scheduled job: {str(e)}")
 
-    async def soft_delete_job(
-        self, session: AsyncSession, job_id: str
-    ) -> ScheduledJob:
+    async def soft_delete_job(self, job_id: str) -> ScheduledJob:
         """Soft delete a job by setting is_active to False."""
         job = await self.get_job_by_id(session, job_id, include_relations=False)
         if not job:
-            raise NotFoundError(entity="ScheduledJob", identifier=job_id)
+            raise NotFoundError(f"ScheduledJob with ID job_id not found")
 
         try:
             job.is_active = False
@@ -310,9 +321,11 @@ class SchedulerRepository:
         self, session: AsyncSession, execution_id: str, update_data: dict
     ) -> ScheduledJobExecution:
         """Update an existing execution record."""
-        execution = await self.get_execution_by_id(session, execution_id, include_relations=False)
+        execution = await self.get_execution_by_id(
+            session, execution_id, include_relations=False
+        )
         if not execution:
-            raise NotFoundError(entity="ScheduledJobExecution", identifier=execution_id)
+            raise NotFoundError(f"ScheduledJobExecution with ID execution_id not found")
 
         try:
             for key, value in update_data.items():
@@ -436,6 +449,7 @@ class SchedulerRepository:
             if count > 0:
                 # Delete in batches to avoid locking
                 from sqlalchemy import delete
+
                 await session.execute(
                     delete(ScheduledJobExecution).where(
                         ScheduledJobExecution.created_at < cutoff_date
@@ -529,7 +543,7 @@ class SchedulerRepository:
             logger.error(f"Failed to release lock for job {job_id}: {e}")
             return False
 
-    async def cleanup_expired_locks(self, session: AsyncSession) -> int:
+    async def cleanup_expired_locks(self) -> int:
         """Clean up expired locks."""
         now = datetime.now(timezone.utc)
 
@@ -584,9 +598,7 @@ class SchedulerRepository:
             await session.rollback()
             raise DatabaseError(f"Failed to register scheduler instance: {str(e)}")
 
-    async def update_heartbeat(
-        self, session: AsyncSession, instance_id: str
-    ) -> bool:
+    async def update_heartbeat(self, instance_id: str) -> bool:
         """Update the heartbeat timestamp for an instance."""
         try:
             result = await session.execute(
@@ -629,9 +641,9 @@ class SchedulerRepository:
     ) -> List[SchedulerInstance]:
         """Get all active scheduler instances."""
         result = await session.execute(
-            select(SchedulerInstance).where(
-                SchedulerInstance.status.in_(["starting", "running", "paused"])
-            ).order_by(SchedulerInstance.started_at.desc())
+            select(SchedulerInstance)
+            .where(SchedulerInstance.status.in_(["starting", "running", "paused"]))
+            .order_by(SchedulerInstance.started_at.desc())
         )
         return list(result.scalars().all())
 
@@ -639,7 +651,9 @@ class SchedulerRepository:
         self, session: AsyncSession, stale_threshold_minutes: int = 5
     ) -> int:
         """Mark instances with no heartbeat as stopped."""
-        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=stale_threshold_minutes)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(
+            minutes=stale_threshold_minutes
+        )
 
         try:
             result = await session.execute(
@@ -670,7 +684,7 @@ class SchedulerRepository:
     # Statistics
     # -------------------
 
-    async def get_job_stats(self, session: AsyncSession) -> dict:
+    async def get_job_stats(self) -> dict:
         """Get statistics about scheduled jobs."""
         total_query = select(func.count()).where(ScheduledJob.is_active)
         enabled_query = select(func.count()).where(

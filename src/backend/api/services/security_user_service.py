@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.repositories.security_user_repository import SecurityUserRepository
 from core.exceptions import ValidationError
-from db.models import SecurityUser
+from db.model import SecurityUser
 
 
 class SecurityUserService:
@@ -14,7 +14,7 @@ class SecurityUserService:
 
     def __init__(self):
         """Initialize security user service."""
-        self._repo = SecurityUserRepository()
+        self._repo = SecurityUserRepository(self.session)
 
     async def create_security_user(
         self,

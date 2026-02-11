@@ -6,94 +6,96 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import DatabaseError, NotFoundError
-from db.models import Department
+from db.model import Department
+from .base import BaseRepository
 
 
-class DepartmentRepository:
+class DepartmentRepository(BaseRepository[Department]):
     """Repository for Department entity."""
 
-    def __init__(self):
-        pass
+    model = Department
 
-    async def create(self, session: AsyncSession, department: Department) -> Department:
+    def __init__(self, session: AsyncSession):
+        super().__init__(session)
+
+    async def create(self, department: Department) -> Department:
         try:
-            session.add(department)
-            await session.flush()
+            self.session.add(department)
+            await self.session.flush()
             return department
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to create department: {str(e)}")
 
-    async def get_by_id(self, session: AsyncSession, department_id: int) -> Optional[Department]:
-        result = await session.execute(
+    async def get_by_id(self, department_id: int) -> Optional[Department]:
+        result = await self.session.execute(
             select(Department).where(Department.id == department_id)
         )
         return result.scalar_one_or_none()
 
-    async def get_by_name_en(self, session: AsyncSession, name_en: str) -> Optional[Department]:
-        result = await session.execute(
+    async def get_by_name_en(self, name_en: str) -> Optional[Department]:
+        result = await self.session.execute(
             select(Department).where(Department.name_en == name_en)
         )
         return result.scalar_one_or_none()
 
-    async def get_by_name_ar(self, session: AsyncSession, name_ar: str) -> Optional[Department]:
-        result = await session.execute(
+    async def get_by_name_ar(self, name_ar: str) -> Optional[Department]:
+        result = await self.session.execute(
             select(Department).where(Department.name_ar == name_ar)
         )
         return result.scalar_one_or_none()
 
-    async def list(self, session: AsyncSession, page: int = 1, per_page: int = 25) -> Tuple[List[Department], int]:
+    async def list(
+        self, page: int = 1, per_page: int = 25
+    ) -> Tuple[List[Department], int]:
         from core.pagination import calculate_offset
 
         # Optimized count query
 
-
         count_query = select(func.count()).select_from((select(Department)).subquery())
 
-
-        count_result = await session.execute(count_query)
-
+        count_result = await self.session.execute(count_query)
 
         total = count_result.scalar() or 0
 
         offset = calculate_offset(page, per_page)
-        result = await session.execute(
+        result = await self.session.execute(
             select(Department).offset(offset).limit(per_page)
         )
-        return result.scalars().all(), total
+        return list(result.scalars().all()), total
 
-    async def update(self, session: AsyncSession, department_id: int, department_data: dict) -> Department:
-        department = await self.get_by_id(session, department_id)
+    async def update(self, department_id: int, department_data: dict) -> Department:
+        department = await self.get_by_id(department_id)
         if not department:
-            raise NotFoundError(entity="Department", identifier=department_id)
+            raise NotFoundError(f"Department with ID {department_id} not found")
 
         try:
             for key, value in department_data.items():
                 if value is not None and hasattr(department, key):
                     setattr(department, key, value)
 
-            await session.flush()
+            await self.session.flush()
             return department
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to update department: {str(e)}")
 
-    async def delete(self, session: AsyncSession, department_id: int) -> None:
-        department = await self.get_by_id(session, department_id)
+    async def delete(self, department_id: int) -> None:
+        department = await self.get_by_id(department_id)
         if not department:
-            raise NotFoundError(entity="Department", identifier=department_id)
+            raise NotFoundError(f"Department with ID {department_id} not found")
 
-        await session.delete(department)
-        await session.flush()
+        await self.session.delete(department)
+        await self.session.flush()
 
-    async def get_all_with_hierarchy(self, session: AsyncSession) -> Dict[int, dict]:
+    async def get_all_with_hierarchy(self) -> Dict[int, dict]:
         """
         Get all departments with their hierarchy info.
 
         Returns:
             Dict mapping department_id to {id, name_en, name_ar, parent_id}
         """
-        result = await session.execute(
+        result = await self.session.execute(
             select(
                 Department.id,
                 Department.name_en,

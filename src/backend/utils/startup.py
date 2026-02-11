@@ -9,12 +9,17 @@ from api.services.page_service import PageService
 from api.services.role_service import RoleService
 from api.services.user_service import UserService
 from db.hris_database import get_hris_session
-from db.maria_database import create_tables, get_maria_session
-from db.models import (PagePermission, ScheduledJob, SchedulerExecutionStatus,
-                       SchedulerJobType, TaskFunction)
+from db.database import create_tables, get_maria_session
+from db.model import (
+    PagePermission,
+    ScheduledJob,
+    SchedulerExecutionStatus,
+    SchedulerJobType,
+    TaskFunction,
+)
 from db.schemas import UserCreate
 from fastapi import FastAPI
-from settings import settings
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +35,7 @@ async def lifespan(app: FastAPI):
 
     try:
         # Initialize Redis connection (if enabled)
-        if settings.REDIS_ENABLED:
+        if settings.redis.enabled:
             await _initialize_redis()
 
         # Create database tables
@@ -66,7 +71,7 @@ async def lifespan(app: FastAPI):
         logger.info("✓ Default scheduled jobs seeded")
 
         # Initialize and start scheduler (if enabled)
-        if getattr(settings, "SCHEDULER_ENABLED", True):
+        if getattr(settings, "scheduler_enabled", True):
             logger.info("Initializing scheduler...")
             await _initialize_scheduler(app_session)
             logger.info("✓ Scheduler initialized and started")
@@ -103,9 +108,7 @@ async def create_initial_data(session):
         logger.info("✓ Root account created")
     except Exception as e:
         await session.rollback()
-        logger.warning(
-            f"Root account creation failed (may already exist): {e}"
-        )
+        logger.warning(f"Root account creation failed (may already exist): {e}")
 
     try:
         logger.info("Creating roles...")
@@ -132,9 +135,7 @@ async def create_initial_data(session):
         logger.info("✓ Page permissions created")
     except Exception as e:
         await session.rollback()
-        logger.warning(
-            f"Page permission creation failed (may already exist): {e}"
-        )
+        logger.warning(f"Page permission creation failed (may already exist): {e}")
 
     try:
         logger.info("Creating request statuses...")
@@ -143,9 +144,7 @@ async def create_initial_data(session):
         logger.info("✓ Request statuses created")
     except Exception as e:
         await session.rollback()
-        logger.warning(
-            f"Request status creation failed (may already exist): {e}"
-        )
+        logger.warning(f"Request status creation failed (may already exist): {e}")
 
     try:
         logger.info("Creating email roles...")
@@ -172,9 +171,7 @@ async def create_initial_data(session):
         logger.info("✓ Navigation pages seeded")
     except Exception as e:
         await session.rollback()
-        logger.warning(
-            f"Navigation pages seeding failed (may already exist): {e}"
-        )
+        logger.warning(f"Navigation pages seeding failed (may already exist): {e}")
 
 
 # Create root account
@@ -184,8 +181,8 @@ async def _create_root_account(session):
     Password from APP_PASSWORD will be automatically hashed with bcrypt
     by UserRepository.create_account() before storage.
     """
-    username = settings.APP_USERNAME
-    password = settings.APP_PASSWORD
+    username = settings.admin_username
+    password = settings.admin_password
 
     if not username or not password:
         logger.warning(
@@ -208,7 +205,7 @@ async def _create_root_account(session):
 
 # Create default web pages
 async def _create_web_pages(session):
-    from db.models import Page
+    from db.model import Page
     from sqlalchemy import select
 
     page_names = [
@@ -233,7 +230,7 @@ async def _create_web_pages(session):
 
 # Create default request statuses
 async def _create_request_statuses(session):
-    from db.models import MealRequestStatus
+    from db.model import MealRequestStatus
     from sqlalchemy import select
 
     # Define statuses with bilingual names
@@ -247,8 +244,7 @@ async def _create_request_statuses(session):
     for status_data in statuses:
         # Check if status already exists by ID
         result = await session.execute(
-            select(MealRequestStatus).where(
-                MealRequestStatus.id == status_data["id"])
+            select(MealRequestStatus).where(MealRequestStatus.id == status_data["id"])
         )
         existing = result.scalar_one_or_none()
 
@@ -258,26 +254,25 @@ async def _create_request_statuses(session):
                 id=status_data["id"],
                 name_en=status_data["name_en"],
                 name_ar=status_data["name_ar"],
-                is_active=True
+                is_active=True,
             )
             session.add(status)
             await session.flush()
             logger.info(
-                f"Created meal request status: {status_data['name_en']} (id={status_data['id']})")
+                f"Created meal request status: {status_data['name_en']} (id={status_data['id']})"
+            )
 
 
 # Create default email roles
 async def _create_email_roles(session):
-    from db.models import EmailRole
+    from db.model import EmailRole
     from sqlalchemy import select
 
     role_names = ["Request_CC", "Confirmation_CC"]
     email_role_service = EmailRoleService()
     for name in role_names:
         # Check if email role already exists
-        result = await session.execute(
-            select(EmailRole).where(EmailRole.name == name)
-        )
+        result = await session.execute(select(EmailRole).where(EmailRole.name == name))
         existing = result.scalar_one_or_none()
         if not existing:
             await email_role_service.create_email_role(session, name=name)
@@ -285,7 +280,7 @@ async def _create_email_roles(session):
 
 # Create default meal types
 async def _create_meal_types(session):
-    from db.models import MealType
+    from db.model import MealType
     from sqlalchemy import select
 
     meal_types = [
@@ -297,8 +292,7 @@ async def _create_meal_types(session):
     for meal_type_data in meal_types:
         # Check if meal type already exists (check English name)
         result = await session.execute(
-            select(MealType).where(
-                MealType.name_en == meal_type_data["name_en"])
+            select(MealType).where(MealType.name_en == meal_type_data["name_en"])
         )
         existing = result.scalar_one_or_none()
         if not existing:
@@ -306,13 +300,13 @@ async def _create_meal_types(session):
                 session,
                 name_en=meal_type_data["name_en"],
                 name_ar=meal_type_data["name_ar"],
-                priority=0
+                priority=0,
             )
 
 
 # Create default Roles
 async def _create_roles(session):
-    from db.models import Role
+    from db.model import Role
     from sqlalchemy import select
 
     # Define roles with bilingual names
@@ -341,36 +335,28 @@ async def _create_roles(session):
 
 # Create default Pages Permission
 async def _create_page_permission(session):
-    from db.models import Page, Role, User
+    from db.model import Page, Role, User
     from sqlalchemy import and_, select
 
     # Get root user for created_by_id
-    root_username = settings.APP_USERNAME or "admin"
-    result = await session.execute(
-        select(User).where(User.username == root_username)
-    )
+    root_username = settings.admin_username or "admin"
+    result = await session.execute(select(User).where(User.username == root_username))
     root_user = result.scalar_one_or_none()
     if not root_user:
-        logger.warning(
-            "Root user not found, skipping page permission creation"
-        )
+        logger.warning("Root user not found, skipping page permission creation")
         return
 
     created_by_id = root_user.id
 
     # Get role IDs by name
     async def get_role_id(role_name: str):
-        result = await session.execute(
-            select(Role).where(Role.name_en == role_name)
-        )
+        result = await session.execute(select(Role).where(Role.name_en == role_name))
         role = result.scalar_one_or_none()
         return role.id if role else None
 
     # Get page IDs by name
     async def get_page_id(page_name: str):
-        result = await session.execute(
-            select(Page).where(Page.name == page_name)
-        )
+        result = await session.execute(select(Page).where(Page.name == page_name))
         page = result.scalar_one_or_none()
         return page.id if page else None
 
@@ -407,18 +393,12 @@ async def _create_page_permission(session):
     # RequestTaker Role's Pages
     request_taker_id = await get_role_id("RequestTaker")
     request_details_page_id = await get_page_id("RequestDetailsPage")
-    request_analysis_page_id = await get_page_id(
-        "RequestAnalysisDashboardPage"
-    )
+    request_analysis_page_id = await get_page_id("RequestAnalysisDashboardPage")
     if request_taker_id:
         if request_details_page_id:
-            await grant_if_not_exists(
-                request_taker_id, request_details_page_id
-            )
+            await grant_if_not_exists(request_taker_id, request_details_page_id)
         if request_analysis_page_id:
-            await grant_if_not_exists(
-                request_taker_id, request_analysis_page_id
-            )
+            await grant_if_not_exists(request_taker_id, request_analysis_page_id)
 
     # Captain Role's Pages
     captain_id = await get_role_id("Captain")
@@ -435,13 +415,9 @@ async def _create_page_permission(session):
     stock_control_id = await get_role_id("StockControl")
     if stock_control_id:
         if request_details_page_id:
-            await grant_if_not_exists(
-                stock_control_id, request_details_page_id
-            )
+            await grant_if_not_exists(stock_control_id, request_details_page_id)
         if request_analysis_page_id:
-            await grant_if_not_exists(
-                stock_control_id, request_analysis_page_id
-            )
+            await grant_if_not_exists(stock_control_id, request_analysis_page_id)
 
 
 # Seed navigation pages with idempotent upsert
@@ -464,7 +440,7 @@ async def _seed_navigation_pages(session):
       - Roles (child of Settings)
     """
     from api.repositories.page_repository import PageRepository
-    from db.models import Page
+    from db.model import Page
     from utils.icon_validation import validate_icon
 
     page_repo = PageRepository()
@@ -745,9 +721,7 @@ async def _seed_navigation_pages(session):
                 page = page_map[key]
                 parent = page_map[parent_key]
                 page.parent_id = parent.id
-                logger.debug(
-                    f"Set parent for {key}: {parent_key} (id={parent.id})"
-                )
+                logger.debug(f"Set parent for {key}: {parent_key} (id={parent.id})")
 
         # Final flush to save parent relationships
         await session.flush()
@@ -758,9 +732,7 @@ async def _seed_navigation_pages(session):
         )
 
         if stats["errors"]:
-            logger.warning(
-                f"Encountered {len(stats['errors'])} errors during seeding:"
-            )
+            logger.warning(f"Encountered {len(stats['errors'])} errors during seeding:")
             for error in stats["errors"]:
                 logger.warning(f"  - {error}")
 
@@ -862,8 +834,7 @@ async def _seed_task_functions(session):
             logger.debug(f"Created task function: {tf_data['key']}")
 
         except Exception as e:
-            logger.warning(
-                f"Failed to create task function {tf_data['key']}: {e}")
+            logger.warning(f"Failed to create task function {tf_data['key']}: {e}")
 
     logger.info(
         f"Task functions seeded: {stats['created']} created, {stats['skipped']} skipped"
@@ -903,8 +874,7 @@ async def _seed_job_types(session):
     for jt_data in default_job_types:
         try:
             result = await session.execute(
-                select(SchedulerJobType).where(
-                    SchedulerJobType.code == jt_data["code"])
+                select(SchedulerJobType).where(SchedulerJobType.code == jt_data["code"])
             )
             existing = result.scalar_one_or_none()
 
@@ -976,7 +946,8 @@ async def _seed_execution_statuses(session):
         try:
             result = await session.execute(
                 select(SchedulerExecutionStatus).where(
-                    SchedulerExecutionStatus.code == status_data["code"])
+                    SchedulerExecutionStatus.code == status_data["code"]
+                )
             )
             existing = result.scalar_one_or_none()
 
@@ -998,7 +969,8 @@ async def _seed_execution_statuses(session):
 
         except Exception as e:
             logger.warning(
-                f"Failed to create execution status {status_data['code']}: {e}")
+                f"Failed to create execution status {status_data['code']}: {e}"
+            )
 
     logger.info(
         f"Execution statuses seeded: {stats['created']} created, {stats['skipped']} skipped"
@@ -1055,7 +1027,9 @@ async def _seed_default_scheduled_jobs(session):
         {
             "task_function_key": "attendance_sync",
             "job_type_code": "interval",
-            "interval_minutes": getattr(settings, "ATTENDANCE_SYNC_INTERVAL_MINUTES", 240),
+            "interval_minutes": getattr(
+                settings, "ATTENDANCE_SYNC_INTERVAL_MINUTES", 240
+            ),
             "priority": 5,
             "is_enabled": getattr(settings, "ATTENDANCE_SYNC_ENABLED", True),
             "is_primary": True,
@@ -1145,13 +1119,10 @@ async def _seed_default_scheduled_jobs(session):
             session.add(job)
             await session.flush()
             stats["created"] += 1
-            logger.info(
-                f"Created scheduled job: {job_data['task_function_key']}")
+            logger.info(f"Created scheduled job: {job_data['task_function_key']}")
 
         except Exception as e:
-            logger.warning(
-                f"Failed to create job {job_data['task_function_key']}: {e}"
-            )
+            logger.warning(f"Failed to create job {job_data['task_function_key']}: {e}")
 
     logger.info(
         f"Scheduled jobs seeded: {stats['created']} created, "
@@ -1175,47 +1146,52 @@ async def _initialize_scheduler(session):
     # Register known job functions
     try:
         from replicate import main as hris_replicate
-        _scheduler_service.register_job_function(
-            "hris_replication", hris_replicate)
+
+        _scheduler_service.register_job_function("hris_replication", hris_replicate)
     except ImportError:
         logger.warning("Could not import hris_replicate function")
 
     try:
         from utils.sync_attendance import run_attendance_sync
-        _scheduler_service.register_job_function(
-            "attendance_sync", run_attendance_sync)
+
+        _scheduler_service.register_job_function("attendance_sync", run_attendance_sync)
     except ImportError:
         logger.warning("Could not import run_attendance_sync function")
 
     try:
         from tasks.domain_users import sync_domain_users
-        _scheduler_service.register_job_function(
-            "domain_user_sync", sync_domain_users)
+
+        _scheduler_service.register_job_function("domain_user_sync", sync_domain_users)
     except ImportError:
         logger.warning("Could not import sync_domain_users function")
 
     try:
         from api.services.scheduler_service import cleanup_history_job
-        _scheduler_service.register_job_function(
-            "history_cleanup", cleanup_history_job)
+
+        _scheduler_service.register_job_function("history_cleanup", cleanup_history_job)
     except ImportError:
         logger.warning("Could not import cleanup_history_job function")
 
     # Initialize and start
-    await _scheduler_service.initialize(session, mode="embedded", instance_name="fastapi-main")
+    await _scheduler_service.initialize(
+        session, mode="embedded", instance_name="fastapi-main"
+    )
 
     # Ensure Celery tasks are properly initialized when Celery is enabled
-    if settings.CELERY_ENABLED:
+    if settings.celery.enabled:
         try:
             from tasks.celery_bridge import initialize_celery_tasks
+
             initialize_celery_tasks()
             logger.info("✓ Celery tasks initialized during scheduler startup")
         except ImportError as e:
             logger.warning(
-                f"⚠ Celery tasks not available during scheduler startup: {e}")
+                f"⚠ Celery tasks not available during scheduler startup: {e}"
+            )
         except Exception as e:
             logger.error(
-                f"❌ Failed to initialize Celery tasks during scheduler startup: {e}")
+                f"❌ Failed to initialize Celery tasks during scheduler startup: {e}"
+            )
 
     await _scheduler_service.start(session)
     await session.commit()
@@ -1224,6 +1200,7 @@ async def _initialize_scheduler(session):
 # ============================================================================
 # Redis Initialization
 # ============================================================================
+
 
 async def _initialize_redis() -> None:
     """
@@ -1237,8 +1214,8 @@ async def _initialize_redis() -> None:
     try:
         logger.info("Initializing Redis connection...")
         await init_redis(
-            redis_url=settings.REDIS_URL,
-            max_connections=settings.REDIS_MAX_CONNECTIONS,
+            redis_url=settings.redis.url,
+            max_connections=settings.redis.max_connections,
         )
 
         # Verify connection with health check
@@ -1250,7 +1227,8 @@ async def _initialize_redis() -> None:
             )
         else:
             logger.warning(
-                f"Redis health check failed: {health.get('error', 'unknown')}")
+                f"Redis health check failed: {health.get('error', 'unknown')}"
+            )
 
     except ConnectionError as e:
         logger.warning(
@@ -1259,8 +1237,7 @@ async def _initialize_redis() -> None:
         )
     except Exception as e:
         logger.warning(
-            f"Redis initialization error: {e}. "
-            "Continuing without Redis caching."
+            f"Redis initialization error: {e}. Continuing without Redis caching."
         )
 
 

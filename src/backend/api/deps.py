@@ -17,9 +17,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.sessions import verify_access_token
-from db.maria_database import get_maria_session
-from db.models import User
-from settings import settings
+from db.database import get_maria_session
+from db.model import User
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ async def get_current_user_id_optional(
                     return user_id
 
         # Fallback to refresh token cookie (stateful sessions)
-        refresh_token = request.cookies.get(settings.SESSION_COOKIE_NAME)
+        refresh_token = request.cookies.get(settings.session.cookie_name)
         if refresh_token:
             payload = verify_refresh_token(refresh_token)
             if payload:
@@ -146,7 +146,7 @@ def parse_accept_language(accept_language: str) -> list:
 async def get_locale(
     request: Request,
     lang: Optional[str] = Query(None, description="Override locale via query parameter"),
-    locale_cookie: Optional[str] = Cookie(None, alias=settings.LOCALE_COOKIE_NAME),
+    locale_cookie: Optional[str] = Cookie(None, alias=settings.locale.cookie_name),
     accept_language: Optional[str] = Header(None, alias="accept-language"),
     session: AsyncSession = Depends(get_session),
 ) -> str:
@@ -158,7 +158,7 @@ async def get_locale(
     2. locale cookie
     3. Authenticated user's preferred_locale
     4. Accept-Language header (with RFC q-value parsing)
-    5. Application default (settings.DEFAULT_LOCALE)
+    5. Application default (settings.locale.default_locale)
 
     Args:
         request: FastAPI Request object
@@ -168,18 +168,18 @@ async def get_locale(
         accept_language: Accept-Language header value
 
     Returns:
-        Locale code from settings.SUPPORTED_LOCALES (e.g., 'en', 'ar')
+        Locale code from settings.locale.supported_locales (e.g., 'en', 'ar')
     """
     # Priority 1: Explicit lang query parameter
     if lang:
         locale = lang.lower()
-        if locale in settings.SUPPORTED_LOCALES:
+        if locale in settings.locale.supported_locales:
             return locale
 
     # Priority 2: locale cookie
     if locale_cookie:
         locale = locale_cookie.lower()
-        if locale in settings.SUPPORTED_LOCALES:
+        if locale in settings.locale.supported_locales:
             return locale
 
     # Priority 3: Authenticated user's preferred_locale
@@ -192,7 +192,7 @@ async def get_locale(
                 )
                 preferred_locale = result.scalar_one_or_none()
                 logger.debug(f"[get_locale] user_id={user_id}, preferred_locale from DB={preferred_locale}")
-                if preferred_locale and preferred_locale in settings.SUPPORTED_LOCALES:
+                if preferred_locale and preferred_locale in settings.locale.supported_locales:
                     return preferred_locale
         except Exception as e:
             # If user lookup fails, continue to next priority
@@ -204,14 +204,14 @@ async def get_locale(
         try:
             languages = parse_accept_language(accept_language)
             for lang_code, quality in languages:
-                if lang_code in settings.SUPPORTED_LOCALES:
+                if lang_code in settings.locale.supported_locales:
                     return lang_code
         except Exception:
             # If parsing fails, continue to default
             pass
 
     # Priority 5: Application default
-    return settings.DEFAULT_LOCALE
+    return settings.locale.default_locale
 
 
 # Client IP Helper
@@ -304,7 +304,7 @@ async def get_current_user(
 # Current User from Refresh Token (Session Cookie)
 async def get_current_user_from_refresh(
     request: Request,
-    refresh_token: Optional[str] = Cookie(None, alias=settings.SESSION_COOKIE_NAME),
+    refresh_token: Optional[str] = Cookie(None, alias=settings.session.cookie_name),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """

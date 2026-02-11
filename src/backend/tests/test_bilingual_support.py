@@ -4,7 +4,8 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from db.models import Base, Role, Page
+from db.model import Role, Page
+from sqlmodel import SQLModel as Base
 from api.repositories.role_repository import RoleRepository
 from api.repositories.page_repository import PageRepository
 from api.services.role_service import RoleService

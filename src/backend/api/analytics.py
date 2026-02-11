@@ -7,7 +7,7 @@ import traceback
 from datetime import datetime
 from typing import List, Optional
 
-from api.deps import get_session
+from db.database import get_maria_session as get_session
 from api.services import MealRequestService
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse

@@ -6,7 +6,14 @@ from datetime import date, datetime
 from typing import Dict, List, Optional
 
 from core.exceptions import DatabaseError
-from db.schemas import AttendanceRecord, Department, DepartmentAssignmentRecord, Employee, EmployeeShift, SecurityUser as SecurityUserModel
+from db.schemas import (
+    AttendanceRecord,
+    Department,
+    DepartmentAssignmentRecord,
+    Employee,
+    EmployeeShift,
+    SecurityUser as SecurityUserModel,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import text
 
@@ -16,13 +23,12 @@ logger = logging.getLogger(__name__)
 class HRISRepository:
     """Repository for HRIS employee and organizational data."""
 
-    def __init__(self):
-        """Initialize HRIS repository."""
-        pass
+    def __init__(self, session: AsyncSession):
+        """Initialize HRIS repository with session."""
+        self.session = session
 
     async def get_active_employees(
         self,
-        session: AsyncSession,
     ) -> Optional[List[Employee]]:
         """
         Get all active employees from HRIS.
@@ -69,7 +75,9 @@ class HRISRepository:
                 rows = result.fetchall()
             except RuntimeError as e:
                 if "Event loop is closed" in str(e):
-                    logger.warning("HRIS database connection closed, returning empty list")
+                    logger.warning(
+                        "HRIS database connection closed, returning empty list"
+                    )
                     return None
                 raise
 
@@ -192,7 +200,9 @@ class HRISRepository:
                 rows = result.fetchall()
             except RuntimeError as e:
                 if "Event loop is closed" in str(e):
-                    logger.warning("HRIS database connection closed, returning empty list")
+                    logger.warning(
+                        "HRIS database connection closed, returning empty list"
+                    )
                     return None
                 raise
 
@@ -261,9 +271,7 @@ class HRISRepository:
             """
             )
 
-            result = await session.execute(
-                stmt, {"department_id": department_id}
-            )
+            result = await session.execute(stmt, {"department_id": department_id})
             rows = result.fetchall()
 
             if not rows:
@@ -285,9 +293,7 @@ class HRISRepository:
             return employees
 
         except Exception as e:
-            raise DatabaseError(
-                f"Failed to get employees by department: {str(e)}"
-            )
+            raise DatabaseError(f"Failed to get employees by department: {str(e)}")
 
     async def get_employees_grouped_by_department(
         self,
@@ -315,9 +321,7 @@ class HRISRepository:
             return dict(grouped)
 
         except Exception as e:
-            raise DatabaseError(
-                f"Failed to group employees by department: {str(e)}"
-            )
+            raise DatabaseError(f"Failed to group employees by department: {str(e)}")
 
     async def get_employee_by_id(
         self,
@@ -427,7 +431,9 @@ class HRISRepository:
                 rows = result.fetchall()
             except RuntimeError as e:
                 if "Event loop is closed" in str(e):
-                    logger.warning("HRIS database connection closed, returning empty list")
+                    logger.warning(
+                        "HRIS database connection closed, returning empty list"
+                    )
                     return None
                 raise
 
@@ -449,7 +455,9 @@ class HRISRepository:
                 )
                 security_users.append(security_user)
 
-            logger.info(f"Successfully created {len(security_users)} SecurityUser model instances")
+            logger.info(
+                f"Successfully created {len(security_users)} SecurityUser model instances"
+            )
             return security_users
 
         except Exception as e:
@@ -471,7 +479,9 @@ class HRISRepository:
             List of DepartmentAssignmentRecord with employee_id and department_id
         """
         try:
-            logger.info("Fetching department assignments from HRIS TMS_ForwardEdit table")
+            logger.info(
+                "Fetching department assignments from HRIS TMS_ForwardEdit table"
+            )
 
             stmt = text(
                 """
@@ -490,7 +500,9 @@ class HRISRepository:
                 rows = result.fetchall()
             except RuntimeError as e:
                 if "Event loop is closed" in str(e):
-                    logger.warning("HRIS database connection closed, returning empty list")
+                    logger.warning(
+                        "HRIS database connection closed, returning empty list"
+                    )
                     return None
                 raise
 
@@ -498,7 +510,9 @@ class HRISRepository:
                 logger.warning("No department assignments found in TMS_ForwardEdit")
                 return None
 
-            logger.info(f"Retrieved {len(rows)} department assignments from TMS_ForwardEdit")
+            logger.info(
+                f"Retrieved {len(rows)} department assignments from TMS_ForwardEdit"
+            )
 
             assignments = []
             for row in rows:
@@ -511,17 +525,19 @@ class HRISRepository:
             # Log sample of first 5 assignments
             logger.info("Sample of first 5 department assignments:")
             for idx, assign in enumerate(assignments[:5]):
-                logger.info(f"  {idx+1}. EmployeeID={assign.employee_id}, DepartmentID={assign.department_id}")
+                logger.info(
+                    f"  {idx + 1}. EmployeeID={assign.employee_id}, DepartmentID={assign.department_id}"
+                )
 
-            logger.info(f"Successfully created {len(assignments)} DepartmentAssignmentRecord instances")
+            logger.info(
+                f"Successfully created {len(assignments)} DepartmentAssignmentRecord instances"
+            )
             return assignments
 
         except Exception as e:
-            raise DatabaseError(
-                f"Failed to get department assignments: {str(e)}"
-            )
+            raise DatabaseError(f"Failed to get department assignments: {str(e)}")
 
-    async def deactivate_all_employees(self, session: AsyncSession) -> None:
+    async def deactivate_all_employees(self) -> None:
         """
         Deactivate all employees in the local database.
 
@@ -538,13 +554,9 @@ class HRISRepository:
             )
             await session.execute(stmt)
         except Exception as e:
-            raise DatabaseError(
-                f"Failed to deactivate all employees: {str(e)}"
-            )
+            raise DatabaseError(f"Failed to deactivate all employees: {str(e)}")
 
-    async def deactivate_all_security_users(
-        self, session: AsyncSession
-    ) -> None:
+    async def deactivate_all_security_users(self, session: AsyncSession) -> None:
         """
         Deactivate all security users in the local database by marking them as deleted.
 
@@ -561,13 +573,9 @@ class HRISRepository:
             )
             await session.execute(stmt)
         except Exception as e:
-            raise DatabaseError(
-                f"Failed to deactivate all security users: {str(e)}"
-            )
+            raise DatabaseError(f"Failed to deactivate all security users: {str(e)}")
 
-    async def delete_all_department_assignments(
-        self, session: AsyncSession
-    ) -> None:
+    async def delete_all_department_assignments(self, session: AsyncSession) -> None:
         """
         Delete all department assignments in the local database.
 
@@ -641,12 +649,8 @@ class HRISRepository:
         try:
             # Build parameterized IN clause for employee IDs
             # SQL Server requires a different approach for large IN clauses
-            placeholders = ", ".join(
-                [f":id_{i}" for i in range(len(employee_ids))]
-            )
-            params = {
-                f"id_{i}": emp_id for i, emp_id in enumerate(employee_ids)
-            }
+            placeholders = ", ".join([f":id_{i}" for i in range(len(employee_ids))])
+            params = {f"id_{i}": emp_id for i, emp_id in enumerate(employee_ids)}
             params["target_date"] = target_date
 
             stmt = text(
@@ -667,7 +671,9 @@ class HRISRepository:
             result = await session.execute(stmt, params)
             rows = result.fetchall()
 
-            logger.debug(f"TMS query returned {len(rows)} records for {len(employee_ids)} employees on {target_date}")
+            logger.debug(
+                f"TMS query returned {len(rows)} records for {len(employee_ids)} employees on {target_date}"
+            )
 
             attendance_records = []
             for row in rows:
@@ -675,18 +681,14 @@ class HRISRepository:
                     employee_id=row[0],
                     time_in=row[1],
                     time_out=row[2],
-                    working_hours=(
-                        float(row[3]) if row[3] is not None else None
-                    ),
+                    working_hours=(float(row[3]) if row[3] is not None else None),
                 )
                 attendance_records.append(record)
 
             return attendance_records
 
         except Exception as e:
-            raise DatabaseError(
-                f"Failed to get attendance for employees: {str(e)}"
-            )
+            raise DatabaseError(f"Failed to get attendance for employees: {str(e)}")
 
     async def get_attendance_for_employee(
         self,
@@ -741,9 +743,7 @@ class HRISRepository:
             )
 
         except Exception as e:
-            raise DatabaseError(
-                f"Failed to get attendance for employee: {str(e)}"
-            )
+            raise DatabaseError(f"Failed to get attendance for employee: {str(e)}")
 
     async def get_today_sign_in_time(
         self,
@@ -807,9 +807,7 @@ class HRISRepository:
             logger.error(
                 f"Failed to get sign-in time for employee {employee_id}: {str(e)}"
             )
-            raise DatabaseError(
-                f"Failed to get sign-in time for employee: {str(e)}"
-            )
+            raise DatabaseError(f"Failed to get sign-in time for employee: {str(e)}")
 
     # === Shift Methods (TMS) ===
 
@@ -933,15 +931,11 @@ class HRISRepository:
                     employee_id=row[0],
                     time_in=row[1],
                     time_out=row[2],
-                    working_hours=(
-                        float(row[3]) if row[3] is not None else None
-                    ),
+                    working_hours=(float(row[3]) if row[3] is not None else None),
                 )
                 attendance_records.append(record)
 
             return attendance_records
 
         except Exception as e:
-            raise DatabaseError(
-                f"Failed to get attendance by date range: {str(e)}"
-            )
+            raise DatabaseError(f"Failed to get attendance by date range: {str(e)}")

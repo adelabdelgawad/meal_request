@@ -10,9 +10,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import attributes
 
+from core.config import settings
 from core.exceptions import DatabaseError, NotFoundError
-from db.models import Session
-from settings import settings
+from db.model import Session
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class SessionRepository:
         # Prepare metadata with locale if provided
         session_metadata = metadata or {}
         if locale:
-            session_metadata['locale'] = locale
+            session_metadata["locale"] = locale
 
         new_session = Session(
             id=str(uuid.uuid4()),
@@ -139,7 +139,11 @@ class SessionRepository:
         return result.scalar_one_or_none()
 
     async def rotate_refresh_id(
-        self, session: AsyncSession, old_refresh_id: str, new_refresh_id: str, locale: Optional[str] = None
+        self,
+        session: AsyncSession,
+        old_refresh_id: str,
+        new_refresh_id: str,
+        locale: Optional[str] = None,
     ) -> Session:
         """
         Atomically rotate refresh token ID.
@@ -162,7 +166,7 @@ class SessionRepository:
         # Lock the row for update
         db_session = await self.get_by_refresh_id_for_update(session, old_refresh_id)
         if not db_session:
-            raise NotFoundError(entity="Session", identifier=old_refresh_id)
+            raise NotFoundError(f"Session with ID old_refresh_id not found")
 
         # Check if session is revoked
         if db_session.revoked:
@@ -188,9 +192,9 @@ class SessionRepository:
             if locale:
                 if not db_session.session_metadata:
                     db_session.session_metadata = {}
-                db_session.session_metadata['locale'] = locale
+                db_session.session_metadata["locale"] = locale
                 # Mark the JSON column as modified so SQLAlchemy detects the change
-                attributes.flag_modified(db_session, 'session_metadata')
+                attributes.flag_modified(db_session, "session_metadata")
 
             await session.flush()
             return db_session
@@ -274,7 +278,10 @@ class SessionRepository:
         return db_session
 
     async def revoke_by_user(
-        self, session: AsyncSession, user_id: str, except_session_id: Optional[str] = None
+        self,
+        session: AsyncSession,
+        user_id: str,
+        except_session_id: Optional[str] = None,
     ) -> int:
         """
         Revoke all sessions for a user.
@@ -289,9 +296,7 @@ class SessionRepository:
         Returns:
             Number of sessions revoked
         """
-        stmt = select(Session).where(
-            Session.user_id == user_id, ~Session.revoked
-        )
+        stmt = select(Session).where(Session.user_id == user_id, ~Session.revoked)
         if except_session_id:
             stmt = stmt.where(Session.id != except_session_id)
 
@@ -330,7 +335,7 @@ class SessionRepository:
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
-    async def cleanup_expired(self, session: AsyncSession) -> int:
+    async def cleanup_expired(self) -> int:
         """
         Delete expired sessions.
 
@@ -379,7 +384,9 @@ class SessionRepository:
         if is_redis_available():
             cache_key = f"{RedisKeys.SESSION}invalid:{refresh_token_id}"
             if await cache_exists(cache_key):
-                logger.debug(f"Session {refresh_token_id[:8]}... found in invalid cache")
+                logger.debug(
+                    f"Session {refresh_token_id[:8]}... found in invalid cache"
+                )
                 return False
 
         # Check database
@@ -390,7 +397,7 @@ class SessionRepository:
                 await cache_set(
                     f"{RedisKeys.SESSION}invalid:{refresh_token_id}",
                     "not_found",
-                    settings.REDIS_SESSION_CACHE_TTL_SECONDS
+                    settings.redis.session_cache_ttl_seconds,
                 )
             return False
 
@@ -400,7 +407,7 @@ class SessionRepository:
                 await cache_set(
                     f"{RedisKeys.SESSION}invalid:{refresh_token_id}",
                     "revoked",
-                    settings.REDIS_SESSION_CACHE_TTL_SECONDS
+                    settings.redis.session_cache_ttl_seconds,
                 )
             return False
 
@@ -416,7 +423,7 @@ class SessionRepository:
                 await cache_set(
                     f"{RedisKeys.SESSION}invalid:{refresh_token_id}",
                     "expired",
-                    settings.REDIS_SESSION_CACHE_TTL_SECONDS
+                    settings.redis.session_cache_ttl_seconds,
                 )
             return False
 
@@ -438,12 +445,10 @@ class SessionRepository:
 
         # Mark session as invalid in cache
         cache_key = f"{RedisKeys.SESSION}invalid:{refresh_token_id}"
-        await cache_set(cache_key, "revoked", settings.REDIS_SESSION_CACHE_TTL_SECONDS)
+        await cache_set(cache_key, "revoked", settings.redis.session_cache_ttl_seconds)
         logger.debug(f"Cached session {refresh_token_id[:8]}... as invalid")
 
-    async def count_active_sessions(
-        self, session: AsyncSession, user_id: str
-    ) -> int:
+    async def count_active_sessions(self, user_id: str) -> int:
         """
         Count active (non-revoked, non-expired) sessions for a user.
 
@@ -456,9 +461,7 @@ class SessionRepository:
         """
         now = datetime.now(timezone.utc)
         stmt = select(Session).where(
-            Session.user_id == user_id,
-            ~Session.revoked,
-            Session.expires_at > now
+            Session.user_id == user_id, ~Session.revoked, Session.expires_at > now
         )
         result = await session.execute(stmt)
         active_sessions = result.scalars().all()
@@ -481,9 +484,7 @@ class SessionRepository:
         stmt = (
             select(Session)
             .where(
-                Session.user_id == user_id,
-                ~Session.revoked,
-                Session.expires_at > now
+                Session.user_id == user_id, ~Session.revoked, Session.expires_at > now
             )
             .order_by(Session.created_at.asc())  # Oldest first
             .limit(1)
@@ -492,7 +493,11 @@ class SessionRepository:
         return result.scalar_one_or_none()
 
     async def enforce_session_limit(
-        self, session: AsyncSession, user_id: str, max_sessions: int, exclude_session_id: str = None
+        self,
+        session: AsyncSession,
+        user_id: str,
+        max_sessions: int,
+        exclude_session_id: str = None,
     ) -> int:
         """
         Enforce max concurrent sessions by revoking oldest sessions if limit exceeded.
@@ -531,7 +536,7 @@ class SessionRepository:
         base_conditions = [
             Session.user_id == user_id,
             ~Session.revoked,
-            Session.expires_at > now
+            Session.expires_at > now,
         ]
 
         # Exclude the current session if specified

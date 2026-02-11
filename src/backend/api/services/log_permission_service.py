@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.repositories.log_permission_repository import LogPermissionRepository
 from core.exceptions import NotFoundError
-from db.models import LogPermission
+from db.model import LogPermission
 
 
 class LogPermissionService:
@@ -14,7 +14,7 @@ class LogPermissionService:
 
     def __init__(self):
         """Initialize service."""
-        self._repo = LogPermissionRepository()
+        self._repo = LogPermissionRepository(self.session)
 
     async def log_permission_action(
         self,

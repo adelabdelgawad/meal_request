@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from db.cruds.tokens_crud_async import TokenCRUDAsync
-from db.models import RevokedToken
+from db.model import RevokedToken
 from routers.sec_login import router as login_router
 from utils.logging_config import setup_logging
 from utils.security import create_jwt, decode_jwt

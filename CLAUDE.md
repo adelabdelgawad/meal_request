@@ -18,12 +18,10 @@ pip install -r requirements.txt
 ```bash
 cd src/backend
 # Set PYTHONPATH to the src/backend directory
-export PYTHONPATH=/home/adel/Desktop/meal_request/src/backend
-# Or use relative path from repo root:
 export PYTHONPATH=src/backend
 
 # Run with uvicorn (default port 8000)
-PYTHONPATH=src/backend python3 -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
+PYTHONPATH=src/backend python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Testing:**
@@ -68,26 +66,28 @@ npx serve src/frontend -l 3000
 
 **Framework & Core:**
 - FastAPI application with async/await support
-- Entry point: `src/backend/app.py`
-- Settings management via Pydantic Settings (`settings.py`)
-- Multi-database support (MariaDB primary, HRIS, BioStar for external data)
+- Entry point: `src/backend/main.py`
+- Hierarchical settings via Pydantic Settings (`core/config.py`)
+- Multi-database support (PostgreSQL primary, HRIS, BioStar for external data)
 
 **Authentication & Security:**
 - JWT-based authentication with access and refresh tokens
 - Dual authentication: LDAP/Active Directory and local accounts
 - Login flow in `utils/login.py` checks domain vs local scope
-- Token management with revocation support (`db/cruds/tokens_crud_async.py`)
+- Token management with revocation support via `RevokedTokenService`
+- Session management via `core/sessions.py` (JWT issue/verify, fingerprinting)
 - Role-based access control (RBAC) with page permissions
 - Rate limiting via SlowAPI
 - Security middleware and CORS allowlist management
 
 **Database Layer:**
-- Primary DB: MariaDB (via `db/database.py`)
+- Primary DB: PostgreSQL 16 (via `db/database.py`, asyncpg driver)
 - Secondary DBs: HRIS (SQL Server), BioStar (MSSQL) for external data
-- SQLAlchemy 2.0+ with async support (aiomysql driver)
-- Models in `db/models.py` include: Account, Role, SecurityUser, PagePermission, MealRequest, etc.
-- CRUD operations organized in `db/cruds/` with async patterns
-- Alembic for migrations (uses pymysql driver for sync operations)
+- SQLModel (built on SQLAlchemy 2.0+) with async support
+- Models in `db/model.py` using `TableModel` base class (SQLModel)
+- Repository pattern: `api/repositories/` with `BaseRepository[T]`
+- Service layer: `api/services/` with session-based dependency injection
+- Alembic for migrations (uses psycopg2 driver for sync operations)
 
 **Key Domain Models:**
 - **Security/Auth:** SecurityUser, Account, Role, RolePermission, PagePermission, RevokedToken
@@ -96,23 +96,34 @@ npx serve src/frontend -l 3000
 - **Attendance:** Attendance, AttendanceDevice, AttendanceDeviceType
 
 **Routers (API Endpoints):**
-- `sec_login.py`: Login, token refresh, logout
-- `router_router_meal_request.py`: Meal request CRUD operations
-- `router_request_details.py`: Detailed meal request views
-- `router_requests_analysis.py`: Analytics endpoints
-- `router_permission_magement.py`: RBAC management
-- `router_audit.py`: Audit logging
+Organized in `api/routers/` by domain:
+- `auth/`: login_router, auth_router, me_router, internal_auth_router
+- `request/`: meal_request_router, requests_router, my_requests_router
+- `setting/`: users_router, roles_router, pages_router, departments_router, meal_type_setup_router, scheduler/
+- `report/`: analysis_router, audit_router, reporting_router
+- `admin/`: admin_router
+
+All routers registered via unified `api/routers/__init__.py` → `main_router`
+
+**Dependencies (`core/dependencies.py`):**
+- `SessionDep`: Async database session (annotated dependency)
+- `CurrentUserDep`: Current authenticated user
+- `ActiveUserDep`: Current active (non-blocked) user
+- `RoleChecker`: Role-based endpoint protection
 
 **Middleware & Utilities:**
-- Request logging middleware (`utils/middleware.py`)
+- Correlation middleware (`core/correlation.py`) — request tracing via X-Correlation-ID
 - Observability with Prometheus metrics and OpenTelemetry tracing (`utils/observability.py`)
 - Structured logging via `utils/logging_config.py`
 - LDAP authentication (`utils/ldap.py`)
 - Email sending via Exchange Web Services (`utils/mail_sender.py`)
+- Security headers middleware (in `main.py`)
 
 **Background Processing:**
-- Email notifications use FastAPI BackgroundTasks (non-blocking)
-- No external task queue required
+- Celery with gevent for async background tasks (Redis broker)
+- Tasks in `tasks/`: hris.py, attendance.py, scheduler.py, email.py
+- Flower for Celery monitoring (port 5555)
+- Email notifications also use FastAPI BackgroundTasks for non-blocking execution
 
 ### Frontend Architecture
 
@@ -131,67 +142,90 @@ npx serve src/frontend -l 3000
 
 ### Database Architecture
 
-**Primary (MariaDB):**
+**Primary (PostgreSQL 16):**
 - Application data: users, roles, meal requests, permissions
-- Managed via SQLAlchemy and Alembic migrations
-- Uses aiomysql for async operations, pymysql for Alembic sync operations
+- Managed via SQLModel + Alembic migrations
+- Uses asyncpg for async operations, psycopg2 for Alembic sync operations
+- Connection pooling via `DatabaseManager` in `db/database.py`
 
 **External Databases:**
-- **HRIS:** SQL Server database for employee records (read-only)
+- **HRIS:** SQL Server database for employee records (read-only, via `db/hris_database.py`)
 - **BioStar:** Attendance system database (read-only)
 
 **Database Session Management:**
-- Each request gets a dedicated async session via middleware
+- `get_application_session()` provides async session per request (dependency injection)
+- `SessionDep` annotated type for FastAPI endpoint injection
 - Sessions auto-rollback on exceptions and close after response
 - Multiple database connections managed separately
 
 ## Configuration
 
 **Environment Variables:**
-Create `.env` file in `src/backend/` with:
+Create `.env` file in `src/backend/` or use Docker env files (`docker/env/.env.backend`):
 
 ```env
-# Primary Database (MariaDB)
-MARIA_URL=mysql+aiomysql://user:pass@host:3306/db?charset=utf8mb4
-# Or use individual variables:
-DB_USER=meal_user
-DB_PASSWORD=meal_password
-DB_SERVER=localhost
-DB_NAME=meal_request_db
+# Primary Database (PostgreSQL)
+DATABASE_URL=postgresql+asyncpg://meal_user:meal_password@localhost:5432/meal_request_db
+# Legacy fallbacks also supported: MARIA_URL, APP_DB_URL
 
-# External Database URLs (full DSNs)
-BIOSTAR_URL=mssql+pyodbc://...
-HRIS_URL=mssql+pyodbc://...
+# External Database URLs
+DATABASE_HRIS_URL=mssql+pyodbc://...
 
-# JWT Configuration
-JWT_SECRET_KEY=your-secret-key
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=15
-REFRESH_TOKEN_EXPIRE_DAYS=30
+# JWT / Secrets (prefix: SECRET_)
+SECRET_JWT_SECRET_KEY=your-secret-key
+SECRET_JWT_ALGORITHM=HS256
+# Legacy fallback: JWT_SECRET_KEY
 
-# LDAP/Active Directory
+# LDAP/Active Directory (prefix: AD_)
 AD_SERVER=ldap://domain.com
 AD_DOMAIN=domain
-SERVICE_ACCOUNT=service_account
-SERVICE_PASSWORD=service_password
+AD_SERVICE_ACCOUNT=service_account
+AD_SERVICE_PASSWORD=service_password
 
-# CORS (comma-separated or indexed ALLOWED_ORIGINS__0, ALLOWED_ORIGINS__1)
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
+# CORS (prefix: API_)
+API_CORS_ORIGINS=["http://localhost:3000","http://localhost:8080"]
+# Legacy fallback: ALLOWED_ORIGINS (comma-separated)
+
+# Redis (prefix: REDIS_)
+REDIS_URL=redis://localhost:6379/0
+
+# Celery (prefix: CELERY_)
+CELERY_ENABLED=true
+# CELERY_BROKER_URL defaults to REDIS_URL
+
+# Session (prefix: SESSION_)
+SESSION_ACCESS_TOKEN_MINUTES=15
+SESSION_REFRESH_LIFETIME_DAYS=30
+SESSION_MAX_CONCURRENT=5
+
+# Locale (prefix: LOCALE_)
+LOCALE_DEFAULT_LOCALE=en
+LOCALE_SUPPORTED_LOCALES=["en","ar"]
 
 # Application
 ENVIRONMENT=local  # local, development, production
 LOG_LEVEL=INFO
-
-# Observability
-# Prometheus metrics are always available at /metrics when prometheus_client is installed
-# Configure OpenTelemetry for distributed tracing (optional)
-# OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 ```
 
-**Settings Management:**
-- All config managed via `settings.py` (Pydantic Settings)
-- Secrets loaded from vault in non-local environments
-- Metrics always available at `/metrics` endpoint
+**Settings Management (`core/config.py`):**
+Hierarchical settings with sub-settings classes:
+- `settings.api.*` (APISettings, prefix `API_`) — CORS, API metadata
+- `settings.database.*` (DatabaseSettings, prefix `DATABASE_`) — DB URLs
+- `settings.sec.*` (SecretSettings, prefix `SECRET_`) — JWT config
+- `settings.redis.*` (RedisSettings, prefix `REDIS_`) — Redis connection, cache TTLs
+- `settings.ldap.*` (LDAPSettings, prefix `AD_`) — LDAP/AD config
+- `settings.celery.*` (CelerySettings, prefix `CELERY_`) — Celery broker
+- `settings.email.*` (EmailSettings, prefix `SMTP_`) — Email config
+- `settings.locale.*` (LocaleSettings, prefix `LOCALE_`) — i18n config
+- `settings.session.*` (SessionSettings, prefix `SESSION_`) — Session/token lifetimes
+- `settings.attendance.*` (AttendanceSettings, prefix `ATTENDANCE_`) — Attendance sync
+- `settings.rate_limit.*` (RateLimitSettings, prefix `RATE_LIMIT_`) — Rate limiting
+- Top-level: `settings.environment`, `settings.log_level`, `settings.enable_json_logs`
+
+Legacy env vars (`MARIA_URL`, `JWT_SECRET_KEY`, `ALLOWED_ORIGINS`, `APP_DB_URL`) are supported via `model_post_init` for backward compatibility.
+
+Secrets loaded from vault in non-local environments via `utils/secrets.py`.
+Metrics always available at `/metrics` endpoint.
 
 ## Important Implementation Patterns
 
@@ -298,13 +332,24 @@ Login flow (`utils/login.py`):
 - Pages have access control via PagePermission
 - Check permissions in routers using utility functions
 
-### Database CRUD Pattern
-Each model has a dedicated CRUD module in `db/cruds/`:
-- `create_X()`: Create new record
-- `read_X()`: Read single record
-- `read_Xs()`: Read multiple records
-- `update_X()`: Update existing record
-- `delete_X()`: Delete record (usually soft delete)
+### Repository + Service Pattern
+**Repositories** (`api/repositories/`): Data access layer
+- Inherit from `BaseRepository[T]` (generic over SQLModel type)
+- Receive session in `__init__`: `repo = UserRepository(session)`
+- Methods: `get_by_id()`, `get_all()`, `create()`, `update()`, `delete()`
+
+**Services** (`api/services/`): Business logic layer
+- Receive session in `__init__`: `service = UserService(session)`
+- Instantiate repositories internally
+- Handle validation, authorization, audit logging
+
+**Router pattern:**
+```python
+@router.get("/users/{id}")
+async def get_user(id: int, session: SessionDep, user: CurrentUserDep):
+    service = UserService(session)
+    return await service.get_user(id)
+```
 
 ### Background Tasks
 Email notifications use FastAPI BackgroundTasks for non-blocking execution:
@@ -381,7 +426,7 @@ def my_async_celery_task(self, arg1, arg2):
     """Celery task that uses async database operations."""
 
     async def _execute():
-        from db.maria_database import DatabaseSessionLocal, database_engine
+        from db.database import AsyncSessionLocal as DatabaseSessionLocal, engine as database_engine
         from db.hris_database import _get_hris_session_maker, dispose_hris_engine
 
         # Initialize result variable
@@ -482,59 +527,47 @@ def my_async_celery_task(self, arg1, arg2):
 
 Implementation progress tracked in `docs/PROCESS_TASKS.md` with commit references and timestamps. When completing major features, update this tracker.
 
+## Docker Development
+
+```bash
+cd docker/
+
+# Start all core services
+docker-compose up -d
+
+# Start with dev tools (Redis Commander)
+docker-compose --profile tools up -d
+
+# Run database migrations
+docker-compose exec backend alembic upgrade head
+```
+
 ## Accessing the Application
 
 - **Backend API:** http://localhost:8000
 - **Frontend:** http://localhost:3000
 - **API Docs:** http://localhost:8000/docs (Swagger UI)
 - **Metrics:** http://localhost:8000/metrics (Prometheus format)
+- **Prometheus:** http://localhost:9090
+- **Grafana:** http://localhost:3001
+- **Flower (Celery):** http://localhost:5555
 
 ## Testing
 
-### Real Integration Tests
-The project includes real integration tests that verify authentication flows against a running backend.
-
-**Prerequisites:**
-- Backend must be running at `http://localhost:8000`
-- Admin credentials configured in `.env` (username: `admin`, password from backend `APP_PASSWORD`)
-
-**Test Commands:**
+### Backend Tests
 ```bash
-cd src/my-app
+cd src/backend
+PYTHONPATH=src/backend python3 -m pytest tests/ -v
 
-# Run unit tests (token refresh concurrency)
-npm run test:unit:refresh
-
-# Run E2E tests (full auth flow with Playwright)
-npm run test:e2e:real
-
-# Run all tests
-npm run test:all
+# Key test files:
+# tests/test_settings.py — Hierarchical settings validation
+# tests/test_locale_detection.py — Locale detection precedence
+# tests/test_security.py — JWT and authentication
+# tests/test_single_session_per_request.py — Session management
+# tests/test_response_aliasing.py — CamelCase API responses
+# tests/test_user_sync_conflict.py — HRIS sync conflict resolution
+# tests/test_hris_on_shift_logic.py — Attendance shift logic
 ```
-
-**Test Credentials:**
-- Stored in `src/my-app/.env`
-- Never logged in plain text
-- Tokens masked in output
-
-**Test Coverage:**
-- ✅ Login with admin credentials
-- ✅ Session validation
-- ✅ Token refresh (legacy mode)
-- ✅ Concurrent 401 handling (single refresh)
-- ✅ Sequential token refreshes
-- ✅ Logout and token revocation
-- ✅ Invalid credentials rejection
-
-**Test Frameworks:**
-- **Unit Tests:** Vitest (Node.js fetch)
-- **E2E Tests:** Playwright (browser context)
-
-**Known Issues:**
-- E2E tests may timeout due to rate limiting (`@limiter.limit("10/minute")`)
-- Consider disabling rate limiter in test environment or running tests sequentially
-
-**Test Report:** See `src/my-app/TEST_REPORT.md` for detailed results
 
 ---
 

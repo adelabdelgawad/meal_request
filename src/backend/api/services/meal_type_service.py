@@ -6,18 +6,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.repositories.meal_type_repository import MealTypeRepository
 from core.exceptions import NotFoundError
-from db.models import MealType
+from db.model import MealType
 
 
 class MealTypeService:
     """Service for meal type management."""
 
-    def __init__(self):
-        self._repo = MealTypeRepository()
+    def __init__(self, session: AsyncSession):
+        self.session = session
+        self._repo = MealTypeRepository(session)
 
     async def create_meal_type(
         self,
-        session: AsyncSession,
         name_en: str,
         name_ar: str,
         priority: int = 0,
@@ -30,32 +30,32 @@ class MealTypeService:
             priority=priority,
             created_by_id=created_by_id,
         )
-        return await self._repo.create(session, meal_type)
+        return await self._repo.create(meal_type)
 
-    async def get_meal_type(self, session: AsyncSession, meal_type_id: int) -> MealType:
+    async def get_meal_type(self, meal_type_id: int) -> MealType:
         """Get a meal type by ID."""
-        meal_type = await self._repo.get_by_id(session, meal_type_id)
+        meal_type = await self._repo.get_by_id(meal_type_id)
         if not meal_type:
             raise NotFoundError(entity="MealType", identifier=meal_type_id)
         return meal_type
 
     async def list_meal_types(
         self,
-        session: AsyncSession,
         page: int = 1,
         per_page: int = 25,
         active_only: bool = False,
     ) -> Tuple[List[MealType], int]:
         """List all meal types."""
-        return await self._repo.list(session, page=page, per_page=per_page, active_only=active_only)
+        return await self._repo.list(
+            page=page, per_page=per_page, active_only=active_only
+        )
 
-    async def get_active_meal_types(self, session: AsyncSession) -> List[MealType]:
+    async def get_active_meal_types(self) -> List[MealType]:
         """Get all active meal types (not deleted and active=true)."""
-        return await self._repo.get_active_meal_types(session)
+        return await self._repo.get_active_meal_types()
 
     async def update_meal_type(
         self,
-        session: AsyncSession,
         meal_type_id: int,
         name_en: Optional[str] = None,
         name_ar: Optional[str] = None,
@@ -76,8 +76,8 @@ class MealTypeService:
         if updated_by_id is not None:
             update_data["updated_by_id"] = updated_by_id
 
-        return await self._repo.update(session, meal_type_id, update_data)
+        return await self._repo.update(meal_type_id, update_data)
 
-    async def delete_meal_type(self, session: AsyncSession, meal_type_id: int) -> None:
+    async def delete_meal_type(self, meal_type_id: int) -> None:
         """Soft delete a meal type."""
-        await self._repo.soft_delete(session, meal_type_id)
+        await self._repo.soft_delete(meal_type_id)

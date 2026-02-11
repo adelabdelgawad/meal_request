@@ -1,11 +1,12 @@
 """
 Domain-level exceptions for the application.
 
-These exceptions represent domain/business logic errors and are mapped to HTTP responses
-via the exception handler in api/exception_handlers.py.
+Simple exceptions with message-only constructors.
 """
 
 from typing import Any, Dict, List, Optional
+
+from fastapi import status
 
 
 class DomainException(Exception):
@@ -21,6 +22,11 @@ class DomainException(Exception):
         self.message = message
         super().__init__(self.message)
 
+    @property
+    def status_code(self) -> int:
+        """HTTP status code for this exception."""
+        return status.HTTP_500_INTERNAL_SERVER_ERROR
+
 
 class NotFoundError(DomainException):
     """
@@ -28,27 +34,13 @@ class NotFoundError(DomainException):
     Maps to HTTP 404 Not Found.
     """
 
-    def __init__(
-        self,
-        entity: str,
-        identifier: Any,
-        message: Optional[str] = None,
-    ):
-        """
-        Initialize NotFoundError.
-
-        Args:
-            entity: The entity type that was not found (e.g., "User", "MealRequest")
-            identifier: The identifier used in the query (e.g., user ID, username)
-            message: Optional custom message. If not provided, generates a default.
-        """
-        self.entity = entity
-        self.identifier = identifier
-
-        if message is None:
-            message = f"{entity} with identifier '{identifier}' not found"
-
+    def __init__(self, message: str):
+        """Initialize NotFoundError with message."""
         super().__init__(message)
+
+    @property
+    def status_code(self) -> int:
+        return status.HTTP_404_NOT_FOUND
 
 
 class ConflictError(DomainException):
@@ -57,33 +49,13 @@ class ConflictError(DomainException):
     Maps to HTTP 409 Conflict.
     """
 
-    def __init__(
-        self,
-        entity: str,
-        field: str,
-        value: Any,
-        message: Optional[str] = None,
-    ):
-        """
-        Initialize ConflictError.
-
-        Args:
-            entity: The entity type (e.g., "User", "MealRequest")
-            field: The field that caused the conflict (e.g., "username", "email")
-            value: The value that caused the conflict
-            message: Optional custom message. If not provided, generates a default.
-        """
-        self.entity = entity
-        self.field = field
-        self.value = value
-
-        if message is None:
-            message = (
-                f"{entity} with {field}='{value}' already exists. "
-                f"Please use a unique {field}."
-            )
-
+    def __init__(self, message: str):
+        """Initialize ConflictError with message."""
         super().__init__(message)
+
+    @property
+    def status_code(self) -> int:
+        return status.HTTP_409_CONFLICT
 
 
 class ValidationError(DomainException):
@@ -92,24 +64,13 @@ class ValidationError(DomainException):
     Maps to HTTP 422 Unprocessable Entity.
     """
 
-    def __init__(
-        self,
-        errors: List[Dict[str, Any]],
-        message: Optional[str] = None,
-    ):
-        """
-        Initialize ValidationError.
-
-        Args:
-            errors: List of error dicts with structure: [{"field": "username", "message": "..."}]
-            message: Optional custom message. If not provided, generates a default.
-        """
-        self.errors = errors
-
-        if message is None:
-            message = f"Validation failed: {len(errors)} error(s)"
-
+    def __init__(self, message: str):
+        """Initialize ValidationError with message."""
         super().__init__(message)
+
+    @property
+    def status_code(self) -> int:
+        return status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 class AuthenticationError(DomainException):
@@ -122,6 +83,10 @@ class AuthenticationError(DomainException):
         """Initialize AuthenticationError."""
         super().__init__(message)
 
+    @property
+    def status_code(self) -> int:
+        return status.HTTP_401_UNAUTHORIZED
+
 
 class AuthorizationError(DomainException):
     """
@@ -133,6 +98,10 @@ class AuthorizationError(DomainException):
         """Initialize AuthorizationError."""
         super().__init__(message)
 
+    @property
+    def status_code(self) -> int:
+        return status.HTTP_403_FORBIDDEN
+
 
 class DatabaseError(DomainException):
     """
@@ -143,3 +112,69 @@ class DatabaseError(DomainException):
     def __init__(self, message: str = "Database operation failed"):
         """Initialize DatabaseError."""
         super().__init__(message)
+
+
+class AuditWriteError(DomainException):
+    """
+    Raised when audit log write fails.
+
+    In strict compliance mode, this exception should block the original operation
+    from completing to ensure all actions are properly audited.
+
+    Usage:
+        try:
+            await audit_service.log_action(...)
+        except AuditWriteError:
+            raise HTTPException(503, "Operation blocked: audit system unavailable")
+    """
+
+    def __init__(self, message: str = "Audit log write failed"):
+        """Initialize AuditWriteError."""
+        super().__init__(message)
+
+    @property
+    def status_code(self) -> int:
+        return status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+class OperationalLogWriteError(DomainException):
+    """
+    Raised when operational log write fails.
+
+    Unlike AuditWriteError, this does not block operations but indicates
+    a logging system issue that should be monitored.
+    """
+
+    def __init__(self, message: str = "Operational log write failed"):
+        """Initialize OperationalLogWriteError."""
+        super().__init__(message)
+
+
+class DetailedHTTPException(Exception):
+    """
+    Detailed HTTP exception with stack traces for development.
+
+    Used in development mode to provide additional debugging information.
+    """
+
+    def __init__(
+        self,
+        status_code: int,
+        detail: str,
+        stack_trace: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ):
+        """
+        Initialize DetailedHTTPException.
+
+        Args:
+            status_code: HTTP status code
+            detail: Error detail message
+            stack_trace: Optional stack trace string
+            context: Optional additional context information
+        """
+        self.status_code = status_code
+        self.detail = detail
+        self.stack_trace = stack_trace
+        self.context = context or {}
+        super().__init__(detail)

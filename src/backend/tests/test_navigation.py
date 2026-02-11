@@ -6,7 +6,8 @@ from sqlalchemy.orm import sessionmaker
 
 from api.repositories.page_repository import PageRepository
 from api.services.navigation_service import NavigationService
-from db.models import Base, Page
+from db.model import Page
+from sqlmodel import SQLModel as Base
 from utils.icon_validation import is_valid_icon_name, is_icon_in_allowlist, validate_icon
 from utils.seed_pages import _create_pages
 

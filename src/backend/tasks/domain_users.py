@@ -78,7 +78,7 @@ def sync_domain_users(self) -> dict:
     """
     async def _execute():
         from api.services.domain_user_service import DomainUserService
-        from db.maria_database import DatabaseSessionLocal, database_engine
+        from db.database import DatabaseSessionLocal, database_engine
 
         service = DomainUserService()
         started_at = datetime.now(timezone.utc)

@@ -92,7 +92,7 @@ def cleanup_history_task(
     async def _execute():
         from api.repositories.scheduler_repository import SchedulerRepository
         from api.services.scheduler_service import get_scheduler_service
-        from db.maria_database import DatabaseSessionLocal, database_engine
+        from db.database import DatabaseSessionLocal, database_engine
 
         scheduler_repo = SchedulerRepository()
         started_at = datetime.now(timezone.utc)

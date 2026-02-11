@@ -13,11 +13,11 @@ The sync is line-scoped:
 import logging
 from datetime import datetime, timezone
 
-from api.deps import get_session
+from db.database import get_maria_session as get_session
 from api.services.attendance_sync_service import AttendanceSyncService
 from api.services.log_replication_service import LogReplicationService
 from db.hris_database import get_hris_session
-from settings import settings
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ async def run_attendance_sync() -> None:
         result = await service.sync_sliding_window(
             session=app_session,
             hris_session=hris_session,
-            months_back=settings.ATTENDANCE_SYNC_MONTHS_BACK,
+            months_back=settings.attendance.sync_months_back,
         )
 
         logger.info(
@@ -122,12 +122,12 @@ def register_attendance_sync_job(scheduler) -> None:
     scheduler.add_job(
         run_attendance_sync,
         "interval",
-        minutes=settings.ATTENDANCE_SYNC_INTERVAL_MINUTES,
+        minutes=settings.attendance.sync_interval_minutes,
         id="attendance_sync",
         name="Sync MealRequestLine attendance from TMS",
         replace_existing=True,
     )
     logger.info(
         f"Registered attendance sync job "
-        f"(interval: {settings.ATTENDANCE_SYNC_INTERVAL_MINUTES} minutes)"
+        f"(interval: {settings.attendance.sync_interval_minutes} minutes)"
     )

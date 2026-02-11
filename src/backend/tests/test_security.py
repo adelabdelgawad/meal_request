@@ -9,14 +9,12 @@ from fastapi.testclient import TestClient
 
 # Set environment variables for testing
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-testing-only"
-os.environ["ALLOWED_ORIGINS"] = (
-    "http://localhost:3000,https://test.example.com"
-)
+os.environ["ALLOWED_ORIGINS"] = "http://localhost:3000,https://test.example.com"
 os.environ["ENVIRONMENT"] = "local"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"
 os.environ["JWT_ALGORITHM"] = "HS256"
 
-from app import app
+from main import app
 
 client = TestClient(app)
 
@@ -40,9 +38,7 @@ class TestJWTAuthentication:
                 return_value=mock_session_instance
             )
             mock_session_instance.__aexit__ = AsyncMock(return_value=None)
-            mock_session_gen.__anext__ = AsyncMock(
-                return_value=mock_session_instance
-            )
+            mock_session_gen.__anext__ = AsyncMock(return_value=mock_session_instance)
             mock_session.return_value = mock_session_gen
 
             # Mock the Login class
@@ -124,9 +120,7 @@ class TestJWTAuthentication:
                 return_value=mock_session_instance
             )
             mock_session_instance.__aexit__ = AsyncMock(return_value=None)
-            mock_session_gen.__anext__ = AsyncMock(
-                return_value=mock_session_instance
-            )
+            mock_session_gen.__anext__ = AsyncMock(return_value=mock_session_instance)
             mock_session.return_value = mock_session_gen
 
             # Mock update_meal_request_line
@@ -217,8 +211,7 @@ class TestCORS:
         assert response.status_code == 200
         assert "access-control-allow-origin" in response.headers
         assert (
-            response.headers["access-control-allow-origin"]
-            == "http://localhost:3000"
+            response.headers["access-control-allow-origin"] == "http://localhost:3000"
         )
         assert "access-control-allow-methods" in response.headers
         assert "access-control-allow-headers" in response.headers

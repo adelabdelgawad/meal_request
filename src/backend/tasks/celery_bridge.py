@@ -9,7 +9,7 @@ When CELERY_ENABLED=False, jobs run inline (direct execution).
 import logging
 from typing import Optional
 
-from settings import settings
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,9 @@ def get_celery_task(job_key: str):
     return _CELERY_TASK_REGISTRY.get(job_key)
 
 
-def dispatch_to_celery(job_key: str, execution_id: Optional[str] = None, **kwargs) -> Optional[str]:
+def dispatch_to_celery(
+    job_key: str, execution_id: Optional[str] = None, **kwargs
+) -> Optional[str]:
     """
     Dispatch a job to Celery if enabled and task is registered.
 
@@ -40,21 +42,21 @@ def dispatch_to_celery(job_key: str, execution_id: Optional[str] = None, **kwarg
     Returns:
         Celery task ID if dispatched, None if falling back to inline
     """
-    if not settings.CELERY_ENABLED:
+    if not settings.celery.enabled:
         logger.debug(f"Celery disabled, running {job_key} inline")
         return None
 
     task = _CELERY_TASK_REGISTRY.get(job_key)
     if not task:
-        logger.debug(
-            f"No Celery task registered for {job_key}, running inline")
+        logger.debug(f"No Celery task registered for {job_key}, running inline")
         return None
 
     try:
         # Pass execution_id to Celery task so it can update status when done
         result = task.delay(execution_id=execution_id, **kwargs)
         logger.info(
-            f"✅ Dispatched job '{job_key}' to Celery, task_id: {result.id}, execution_id: {execution_id}")
+            f"✅ Dispatched job '{job_key}' to Celery, task_id: {result.id}, execution_id: {execution_id}"
+        )
         return result.id
     except Exception as e:
         logger.error(f"❌ Failed to dispatch '{job_key}' to Celery: {e}")
@@ -65,7 +67,7 @@ def dispatch_to_celery(job_key: str, execution_id: Optional[str] = None, **kwarg
 
 def is_celery_task(job_key: str) -> bool:
     """Check if a job key has a registered Celery task."""
-    return job_key in _CELERY_TASK_REGISTRY and settings.CELERY_ENABLED
+    return job_key in _CELERY_TASK_REGISTRY and settings.celery.enabled
 
 
 def initialize_celery_tasks():
@@ -76,21 +78,25 @@ def initialize_celery_tasks():
     """
     try:
         from tasks.attendance import sync_attendance_task
+
         register_celery_task("attendance_sync", sync_attendance_task)
     except ImportError as e:
         logger.warning(f"Could not import attendance Celery task: {e}")
 
     try:
         from tasks.hris import hris_replication_task
+
         register_celery_task("hris_replication", hris_replication_task)
     except ImportError as e:
         logger.warning(f"Could not import HRIS Celery task: {e}")
 
     try:
         from tasks.scheduler import cleanup_history_task
+
         register_celery_task("history_cleanup", cleanup_history_task)
     except ImportError as e:
         logger.warning(f"Could not import scheduler Celery task: {e}")
 
     logger.info(
-        f"Initialized Celery task registry with {len(_CELERY_TASK_REGISTRY)} tasks")
+        f"Initialized Celery task registry with {len(_CELERY_TASK_REGISTRY)} tasks"
+    )

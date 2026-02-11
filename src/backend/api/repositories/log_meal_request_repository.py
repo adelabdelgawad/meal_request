@@ -7,15 +7,15 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import DatabaseError, NotFoundError
-from db.models import LogMealRequest
+from db.model import LogMealRequest
+from .base import BaseRepository
 from api.schemas.log_meal_request_schemas import LogMealRequestCreate
 
 
-class LogMealRequestRepository:
+class LogMealRequestRepository(BaseRepository[LogMealRequest]):
     """Repository for LogMealRequest entity."""
 
-    def __init__(self):
-        pass
+        super().__init__(session)
 
     async def create(
         self, session: AsyncSession, log_data: LogMealRequestCreate
@@ -43,11 +43,11 @@ class LogMealRequestRepository:
                 new_value=log_data.new_value,
                 result=log_data.result,
             )
-            session.add(log)
-            await session.flush()
+            self.session.add(log)
+            await self.session.flush()
             return log
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to create meal request log: {str(e)}")
 
     async def get_by_id(
@@ -63,7 +63,7 @@ class LogMealRequestRepository:
         Returns:
             LogMealRequest instance or None
         """
-        result = await session.execute(
+        result = await self.session.execute(
             select(LogMealRequest).where(LogMealRequest.id == log_id)
         )
         return result.scalar_one_or_none()
@@ -95,13 +95,13 @@ class LogMealRequestRepository:
 
         # Count query
         count_query = select(func.count()).select_from(query.subquery())
-        count_result = await session.execute(count_query)
+        count_result = await self.session.execute(count_query)
         total = count_result.scalar() or 0
 
         # Paginated results
         offset = calculate_offset(page, per_page)
-        result = await session.execute(query.offset(offset).limit(per_page))
-        return result.scalars().all(), total
+        result = await self.session.execute(query.offset(offset).limit(per_page))
+        return list(result.scalars().all()), total
 
     async def query(
         self,
@@ -151,15 +151,15 @@ class LogMealRequestRepository:
 
         # Count query
         count_query = select(func.count()).select_from(query.subquery())
-        count_result = await session.execute(count_query)
+        count_result = await self.session.execute(count_query)
         total = count_result.scalar() or 0
 
         # Paginated results
         offset = calculate_offset(page, per_page)
-        result = await session.execute(query.offset(offset).limit(per_page))
-        return result.scalars().all(), total
+        result = await self.session.execute(query.offset(offset).limit(per_page))
+        return list(result.scalars().all()), total
 
-    async def delete(self, session: AsyncSession, log_id: str) -> None:
+    async def delete(self, log_id: str) -> None:
         """
         Delete a meal request audit log by ID.
 
@@ -170,9 +170,9 @@ class LogMealRequestRepository:
         Raises:
             NotFoundError: If log not found
         """
-        log = await self.get_by_id(session, log_id)
+        log = await self.get_by_id(log_id)
         if not log:
-            raise NotFoundError(entity="LogMealRequest", identifier=log_id)
+            raise NotFoundError(f"LogMealRequest with ID {log_id} not found")
 
-        await session.delete(log)
-        await session.flush()
+        await self.session.delete(log)
+        await self.session.flush()

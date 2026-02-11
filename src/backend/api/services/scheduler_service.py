@@ -19,23 +19,25 @@ from datetime import datetime, timezone
 from typing import Callable, Dict, List, Optional, Tuple
 
 from api.repositories.scheduler_repository import SchedulerRepository
-from api.schemas.scheduler_schemas import (JobExecutionResponse,
-                                           ScheduledJobCreate,
-                                           ScheduledJobCronCreate,
-                                           ScheduledJobIntervalCreate,
-                                           ScheduledJobResponse,
-                                           ScheduledJobUpdate,
-                                           SchedulerExecutionStatusResponse,
-                                           SchedulerInstanceResponse,
-                                           SchedulerJobTypeResponse,
-                                           SchedulerStatusResponse,
-                                           TaskFunctionResponse)
+from api.schemas.scheduler_schemas import (
+    JobExecutionResponse,
+    ScheduledJobCreate,
+    ScheduledJobCronCreate,
+    ScheduledJobIntervalCreate,
+    ScheduledJobResponse,
+    ScheduledJobUpdate,
+    SchedulerExecutionStatusResponse,
+    SchedulerInstanceResponse,
+    SchedulerJobTypeResponse,
+    SchedulerStatusResponse,
+    TaskFunctionResponse,
+)
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from core.exceptions import NotFoundError, ValidationError
-from db.models import (ScheduledJob, ScheduledJobExecution)
-from settings import settings
+from db.model import ScheduledJob, ScheduledJobExecution
+from core.config import settings
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -49,6 +51,7 @@ def _get_celery_bridge():
     """Lazy import of celery bridge to avoid circular imports."""
     try:
         from tasks.celery_bridge import dispatch_to_celery, is_celery_task
+
         return dispatch_to_celery, is_celery_task
     except ImportError:
         return None, None
@@ -71,7 +74,7 @@ class SchedulerService:
     _heartbeat_task: Optional[asyncio.Task] = None
 
     def __init__(self):
-        self._repo = SchedulerRepository()
+        self._repo = SchedulerRepository(self.session)
 
     @classmethod
     def get_instance(cls) -> "SchedulerService":
@@ -110,8 +113,7 @@ class SchedulerService:
         """Get all execution statuses."""
         statuses = await self._repo.list_execution_statuses(session, is_active)
         return [
-            SchedulerExecutionStatusResponse.model_validate(
-                s, from_attributes=True)
+            SchedulerExecutionStatusResponse.model_validate(s, from_attributes=True)
             for s in statuses
         ]
 
@@ -146,8 +148,7 @@ class SchedulerService:
             module = importlib.import_module(module_path)
             return getattr(module, func_name)
         except Exception as e:
-            logger.error(
-                f"Failed to import job function {job_function_path}: {e}")
+            logger.error(f"Failed to import job function {job_function_path}: {e}")
             return None
 
     # -------------------
@@ -175,9 +176,7 @@ class SchedulerService:
             instance_name = f"{mode}-{socket.gethostname()}"
 
         # Register this instance
-        instance = await self._repo.register_instance(
-            session, instance_name, mode
-        )
+        instance = await self._repo.register_instance(session, instance_name, mode)
         await session.commit()
 
         self._instance_id = instance.id
@@ -186,25 +185,23 @@ class SchedulerService:
         # Create scheduler
         self._scheduler = AsyncIOScheduler()
 
-        logger.info(
-            f"Scheduler initialized: {instance_name} ({self._instance_id})")
+        logger.info(f"Scheduler initialized: {instance_name} ({self._instance_id})")
         return self._instance_id
 
     async def start(self, session: AsyncSession) -> None:
         """Start the scheduler and load jobs from database."""
         if not self._scheduler:
-            raise RuntimeError(
-                "Scheduler not initialized. Call initialize() first.")
+            raise RuntimeError("Scheduler not initialized. Call initialize() first.")
 
         if self._is_running:
             logger.warning("Scheduler is already running")
             return
 
         # Initialize Celery task registry (if Celery is enabled)
-        if settings.CELERY_ENABLED:
+        if settings.celery.enabled:
             try:
-                from tasks.celery_bridge import (get_celery_task,
-                                                 initialize_celery_tasks)
+                from tasks.celery_bridge import get_celery_task, initialize_celery_tasks
+
                 initialize_celery_tasks()
 
                 # Verify that critical tasks are registered
@@ -215,15 +212,14 @@ class SchedulerService:
                         registered_count += 1
                         logger.info(f"✓ Celery task registered: {task_key}")
                     else:
-                        logger.warning(
-                            f"⚠ Celery task not registered: {task_key}")
+                        logger.warning(f"⚠ Celery task not registered: {task_key}")
 
                 if registered_count > 0:
                     logger.info(
-                        f"Celery task registry initialized with {registered_count} critical tasks")
+                        f"Celery task registry initialized with {registered_count} critical tasks"
+                    )
                 else:
-                    logger.warning(
-                        "⚠ No critical Celery tasks were registered")
+                    logger.warning("⚠ No critical Celery tasks were registered")
 
             except ImportError as e:
                 logger.warning(f"Celery tasks not available: {e}")
@@ -241,14 +237,11 @@ class SchedulerService:
         self._is_running = True
 
         # Update instance status
-        await self._repo.update_instance_status(
-            session, self._instance_id, "running"
-        )
+        await self._repo.update_instance_status(session, self._instance_id, "running")
         await session.commit()
 
         # Start heartbeat task
-        self._heartbeat_task = asyncio.create_task(
-            self._heartbeat_loop(session))
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop(session))
 
         logger.info("Scheduler started")
 
@@ -314,7 +307,9 @@ class SchedulerService:
         job_key = job.job_key  # This uses the property that gets from task_function
         # This uses the property that gets from task_function
         job_function_path = job.job_function
-        job_type_code = job.job_type  # This uses the property that gets from job_type_ref
+        job_type_code = (
+            job.job_type
+        )  # This uses the property that gets from job_type_ref
 
         if not job_key or not job_function_path:
             logger.error(f"Job {job.id} has no task function defined")
@@ -392,19 +387,28 @@ class SchedulerService:
             result_summary = None
 
             # Import here to avoid circular imports
-            from db.maria_database import get_maria_session
+            from db.database import get_maria_session
 
             async for session in get_maria_session():
                 try:
                     # Get status IDs
-                    pending_status = await self._repo.get_execution_status_by_code(session, "pending")
-                    running_status = await self._repo.get_execution_status_by_code(session, "running")
-                    success_status = await self._repo.get_execution_status_by_code(session, "success")
-                    failed_status = await self._repo.get_execution_status_by_code(session, "failed")
+                    pending_status = await self._repo.get_execution_status_by_code(
+                        session, "pending"
+                    )
+                    running_status = await self._repo.get_execution_status_by_code(
+                        session, "running"
+                    )
+                    success_status = await self._repo.get_execution_status_by_code(
+                        session, "success"
+                    )
+                    failed_status = await self._repo.get_execution_status_by_code(
+                        session, "failed"
+                    )
 
-                    if not all([pending_status, running_status, success_status, failed_status]):
-                        logger.error(
-                            "Missing execution status records in database")
+                    if not all(
+                        [pending_status, running_status, success_status, failed_status]
+                    ):
+                        logger.error("Missing execution status records in database")
                         return
 
                     # Try to acquire lock
@@ -417,7 +421,8 @@ class SchedulerService:
 
                     if not lock:
                         logger.info(
-                            f"Skipping job {job_key} - lock held by another instance")
+                            f"Skipping job {job_key} - lock held by another instance"
+                        )
                         result_summary = "Lock held by another instance"
                         # Don't create execution record for skipped runs
                         return
@@ -438,14 +443,19 @@ class SchedulerService:
                     dispatch_to_celery, is_celery_task = _get_celery_bridge()
 
                     # Log Celery status for debugging
-                    celery_available = dispatch_to_celery is not None and is_celery_task is not None
-                    is_celery_enabled_task = is_celery_task(
-                        job_key) if is_celery_task else False
+                    celery_available = (
+                        dispatch_to_celery is not None and is_celery_task is not None
+                    )
+                    is_celery_enabled_task = (
+                        is_celery_task(job_key) if is_celery_task else False
+                    )
 
-                    logger.debug(f"Job '{job_key}' execution context: "
-                                 f"celery_available={celery_available}, "
-                                 f"celery_enabled={settings.CELERY_ENABLED}, "
-                                 f"is_celery_task={is_celery_enabled_task}")
+                    logger.debug(
+                        f"Job '{job_key}' execution context: "
+                        f"celery_available={celery_available}, "
+                        f"celery_enabled={settings.celery.enabled}, "
+                        f"is_celery_task={is_celery_enabled_task}"
+                    )
 
                     # Execute the job
                     started_at = datetime.now(timezone.utc)
@@ -455,30 +465,37 @@ class SchedulerService:
                         if celery_available and is_celery_enabled_task:
                             celery_task_id = dispatch_to_celery(job_key)
                             if celery_task_id:
-                                result_summary = f"Dispatched to Celery (task_id: {celery_task_id})"
+                                result_summary = (
+                                    f"Dispatched to Celery (task_id: {celery_task_id})"
+                                )
                                 logger.info(
-                                    f"✅ Job '{job_key}' dispatched to Celery: {celery_task_id}")
+                                    f"✅ Job '{job_key}' dispatched to Celery: {celery_task_id}"
+                                )
                             else:
                                 # Fallback to inline execution
                                 logger.warning(
-                                    f"⚠ Celery dispatch failed for '{job_key}', falling back to inline execution")
+                                    f"⚠ Celery dispatch failed for '{job_key}', falling back to inline execution"
+                                )
                                 if asyncio.iscoroutinefunction(func):
                                     result = await func()
                                 else:
                                     result = func()
-                                result_summary = str(
-                                    result)[:500] if result else "Success"
+                                result_summary = (
+                                    str(result)[:500] if result else "Success"
+                                )
                         else:
                             # Direct execution (Celery disabled or no task registered)
-                            reason = "Celery not available" if not celery_available else "Task not registered as Celery task"
-                            logger.info(
-                                f"📋 Running '{job_key}' inline: {reason}")
+                            reason = (
+                                "Celery not available"
+                                if not celery_available
+                                else "Task not registered as Celery task"
+                            )
+                            logger.info(f"📋 Running '{job_key}' inline: {reason}")
                             if asyncio.iscoroutinefunction(func):
                                 result = await func()
                             else:
                                 result = func()
-                            result_summary = str(
-                                result)[:500] if result else "Success"
+                            result_summary = str(result)[:500] if result else "Success"
                     except Exception as e:
                         final_status_id = failed_status.id
                         error_message = str(e)
@@ -519,7 +536,11 @@ class SchedulerService:
         return wrapper
 
     def _create_manual_execution_wrapper(
-        self, job_id: str, job_key: str, func: Callable, triggered_by_user_id: str = None
+        self,
+        job_id: str,
+        job_key: str,
+        func: Callable,
+        triggered_by_user_id: str = None,
     ) -> Callable:
         """
         Create a wrapper for manual job execution that returns execution_id.
@@ -544,20 +565,23 @@ class SchedulerService:
                 execution_id=execution_id,
                 trigger_source="MANUAL",
                 triggered_by_user_id=triggered_by_user_id,
-                job_function=func.__name__ if hasattr(func, '__name__') else str(func)
+                job_function=func.__name__ if hasattr(func, "__name__") else str(func),
             )
 
             # Import here to avoid circular imports
-            from db.maria_database import get_maria_session
+            from db.database import get_maria_session
 
             async for session in get_maria_session():
                 try:
                     # Get running status ID
-                    running_status = await self._repo.get_execution_status_by_code(session, "running")
+                    running_status = await self._repo.get_execution_status_by_code(
+                        session, "running"
+                    )
 
                     if not running_status:
                         logger.error(
-                            "Missing running execution status record in database")
+                            "Missing running execution status record in database"
+                        )
                         return execution_id
 
                     # STEP 1: Create execution record with RUNNING status IMMEDIATELY
@@ -581,11 +605,13 @@ class SchedulerService:
                         execution_id=execution_id,
                         status="RUNNING",
                         executor_id=self._instance_id,
-                        host_name=socket.gethostname()
+                        host_name=socket.gethostname(),
                     )
 
                     # STEP 2: Update job's last_run_at timestamp
-                    await self._repo.update_job(session, job_id, {"last_run_at": started_at})
+                    await self._repo.update_job(
+                        session, job_id, {"last_run_at": started_at}
+                    )
                     await session.commit()
 
                     # INSTRUMENTATION POINT 4: Background task launch
@@ -593,19 +619,19 @@ class SchedulerService:
                         job_id=job_id,
                         job_key=job_key,
                         execution_id=execution_id,
-                        triggered_by=triggered_by_user_id
+                        triggered_by=triggered_by_user_id,
                     )
 
                     # STEP 3: Launch background task for actual execution
                     # (execution is already running, will transition to success/failed)
                     asyncio.create_task(
                         self._execute_job_async(
-                            job_id, execution_id, job_key, func, triggered_by_user_id)
+                            job_id, execution_id, job_key, func, triggered_by_user_id
+                        )
                     )
 
                 except Exception as e:
-                    logger.error(
-                        f"Error creating running execution for {job_key}: {e}")
+                    logger.error(f"Error creating running execution for {job_key}: {e}")
                     await session.rollback()
 
             return execution_id
@@ -632,24 +658,27 @@ class SchedulerService:
             triggered_by_user_id: User ID who manually triggered (None for scheduled)
         """
         # Import here to avoid circular imports
-        from db.maria_database import get_maria_session
+        from db.database import get_maria_session
 
         async for session in get_maria_session():
             try:
                 # Get status IDs
-                success_status = await self._repo.get_execution_status_by_code(session, "success")
-                failed_status = await self._repo.get_execution_status_by_code(session, "failed")
+                success_status = await self._repo.get_execution_status_by_code(
+                    session, "success"
+                )
+                failed_status = await self._repo.get_execution_status_by_code(
+                    session, "failed"
+                )
 
                 if not all([success_status, failed_status]):
-                    logger.error(
-                        "Missing execution status records in database")
+                    logger.error("Missing execution status records in database")
                     return
 
                 # INSTRUMENTATION POINT 5: Lock attempt
                 structured_logger.log_lock_attempt(
                     job_id=job_id,
                     execution_id=execution_id,
-                    instance_id=self._instance_id or "unknown"
+                    instance_id=self._instance_id or "unknown",
                 )
 
                 # Acquire lock
@@ -662,7 +691,7 @@ class SchedulerService:
                     structured_logger.log_lock_failed(
                         job_id=job_id,
                         execution_id=execution_id,
-                        reason="Another instance is running this job"
+                        reason="Another instance is running this job",
                     )
 
                     # Lock failed - mark as failed
@@ -677,19 +706,19 @@ class SchedulerService:
                     )
                     await session.commit()
                     logger.warning(
-                        f"Could not acquire lock for job {job_key}, execution {execution_id}")
+                        f"Could not acquire lock for job {job_key}, execution {execution_id}"
+                    )
                     return
 
                 # INSTRUMENTATION POINT 5c: Lock acquired
                 structured_logger.log_lock_acquired(
-                    job_id=job_id,
-                    execution_id=execution_id,
-                    lock_id=lock.id
+                    job_id=job_id, execution_id=execution_id, lock_id=lock.id
                 )
 
                 # Execution is already in RUNNING state, just log it
                 logger.info(
-                    f"Job {job_key} execution {execution_id} executing (already in running state)")
+                    f"Job {job_key} execution {execution_id} executing (already in running state)"
+                )
 
                 # Execute job function with 15-second timeout
                 JOB_EXECUTION_TIMEOUT = 15  # seconds
@@ -704,96 +733,115 @@ class SchedulerService:
                     dispatch_to_celery, is_celery_task = _get_celery_bridge()
 
                     # Log Celery status for debugging
-                    celery_available = dispatch_to_celery is not None and is_celery_task is not None
-                    is_celery_enabled_task = is_celery_task(
-                        job_key) if is_celery_task else False
+                    celery_available = (
+                        dispatch_to_celery is not None and is_celery_task is not None
+                    )
+                    is_celery_enabled_task = (
+                        is_celery_task(job_key) if is_celery_task else False
+                    )
 
-                    logger.debug(f"Job '{job_key}' execution context: "
-                                 f"celery_available={celery_available}, "
-                                 f"celery_enabled={settings.CELERY_ENABLED}, "
-                                 f"is_celery_task={is_celery_enabled_task}")
+                    logger.debug(
+                        f"Job '{job_key}' execution context: "
+                        f"celery_available={celery_available}, "
+                        f"celery_enabled={settings.celery.enabled}, "
+                        f"is_celery_task={is_celery_enabled_task}"
+                    )
 
                     # Try Celery dispatch first
                     if celery_available and is_celery_enabled_task:
                         # INSTRUMENTATION POINT 6: Celery dispatch attempt
                         task_metadata = {
                             "job_key": job_key,
-                            "job_function": func.__name__ if hasattr(func, '__name__') else str(func),
+                            "job_function": func.__name__
+                            if hasattr(func, "__name__")
+                            else str(func),
                             "triggered_by_user_id": triggered_by_user_id,
-                            "celery_enabled": settings.CELERY_ENABLED
+                            "celery_enabled": settings.celery.enabled,
                         }
                         structured_logger.log_celery_dispatch_attempt(
                             job_key=job_key,
                             execution_id=execution_id,
-                            task_metadata=task_metadata
+                            task_metadata=task_metadata,
                         )
 
                         # Pass execution_id and user_id to Celery task
                         celery_task_id = dispatch_to_celery(
                             job_key,
                             execution_id=execution_id,
-                            triggered_by_user_id=triggered_by_user_id
+                            triggered_by_user_id=triggered_by_user_id,
                         )
                         if celery_task_id:
                             # INSTRUMENTATION POINT 6b: Celery dispatch success
                             structured_logger.log_celery_dispatch_success(
                                 job_key=job_key,
                                 execution_id=execution_id,
-                                celery_task_id=celery_task_id
+                                celery_task_id=celery_task_id,
                             )
 
                             # ✅ FIX: Keep status as RUNNING, don't mark as SUCCESS yet
                             # The Celery task will update the status when it actually completes
-                            result_summary = f"Dispatched to Celery (task_id: {celery_task_id})"
+                            result_summary = (
+                                f"Dispatched to Celery (task_id: {celery_task_id})"
+                            )
                             celery_dispatched = True
                             logger.info(
                                 f"✅ Job '{job_key}' dispatched to Celery: {celery_task_id}, "
-                                f"execution will remain RUNNING until Celery task completes")
+                                f"execution will remain RUNNING until Celery task completes"
+                            )
                         else:
                             # INSTRUMENTATION POINT 6c: Celery dispatch failed
                             structured_logger.log_celery_dispatch_failed(
                                 job_key=job_key,
                                 execution_id=execution_id,
-                                error="dispatch_to_celery returned None"
+                                error="dispatch_to_celery returned None",
                             )
 
                             # Fallback to inline execution
                             logger.warning(
-                                f"⚠ Celery dispatch failed for '{job_key}', falling back to inline execution")
+                                f"⚠ Celery dispatch failed for '{job_key}', falling back to inline execution"
+                            )
                             if asyncio.iscoroutinefunction(func):
-                                result = await asyncio.wait_for(func(), timeout=JOB_EXECUTION_TIMEOUT)
+                                result = await asyncio.wait_for(
+                                    func(), timeout=JOB_EXECUTION_TIMEOUT
+                                )
                             else:
                                 # For sync functions, run in executor with timeout
                                 loop = asyncio.get_event_loop()
                                 result = await asyncio.wait_for(
                                     loop.run_in_executor(None, func),
-                                    timeout=JOB_EXECUTION_TIMEOUT
+                                    timeout=JOB_EXECUTION_TIMEOUT,
                                 )
-                            result_summary = str(
-                                result)[:500] if result else "Success"
+                            result_summary = str(result)[:500] if result else "Success"
                     else:
                         # Direct execution (Celery disabled or no task registered)
-                        reason = "Celery not available" if not celery_available else "Task not registered as Celery task"
-                        logger.info(
-                            f"📋 Running '{job_key}' inline: {reason}")
+                        reason = (
+                            "Celery not available"
+                            if not celery_available
+                            else "Task not registered as Celery task"
+                        )
+                        logger.info(f"📋 Running '{job_key}' inline: {reason}")
                         if asyncio.iscoroutinefunction(func):
-                            result = await asyncio.wait_for(func(), timeout=JOB_EXECUTION_TIMEOUT)
+                            result = await asyncio.wait_for(
+                                func(), timeout=JOB_EXECUTION_TIMEOUT
+                            )
                         else:
                             # For sync functions, run in executor with timeout
                             loop = asyncio.get_event_loop()
                             result = await asyncio.wait_for(
                                 loop.run_in_executor(None, func),
-                                timeout=JOB_EXECUTION_TIMEOUT
+                                timeout=JOB_EXECUTION_TIMEOUT,
                             )
-                        result_summary = str(
-                            result)[:500] if result else "Success"
+                        result_summary = str(result)[:500] if result else "Success"
 
                 except asyncio.TimeoutError:
                     final_status_id = failed_status.id
-                    error_message = f"Job execution timed out after {JOB_EXECUTION_TIMEOUT} seconds"
+                    error_message = (
+                        f"Job execution timed out after {JOB_EXECUTION_TIMEOUT} seconds"
+                    )
                     error_traceback_str = None
                     logger.error(
-                        f"Job {job_key} timed out after {JOB_EXECUTION_TIMEOUT}s")
+                        f"Job {job_key} timed out after {JOB_EXECUTION_TIMEOUT}s"
+                    )
                 except Exception as e:
                     final_status_id = failed_status.id
                     error_message = str(e)
@@ -806,7 +854,8 @@ class SchedulerService:
                 if not celery_dispatched:
                     completed_at = datetime.now(timezone.utc)
                     duration_ms = int(
-                        (completed_at - started_at).total_seconds() * 1000)
+                        (completed_at - started_at).total_seconds() * 1000
+                    )
 
                     await self._repo.update_execution(
                         session,
@@ -834,7 +883,8 @@ class SchedulerService:
                 await self._repo.release_lock(session, job_id, execution_id)
                 await session.commit()
                 logger.info(
-                    f"Job {job_key} execution {execution_id} completed with status: {final_status_id}")
+                    f"Job {job_key} execution {execution_id} completed with status: {final_status_id}"
+                )
 
             except Exception as e:
                 logger.error(f"Background execution failed for {job_key}: {e}")
@@ -852,22 +902,27 @@ class SchedulerService:
     ) -> ScheduledJob:
         """Create a new scheduled job."""
         # Validate task function exists
-        task_function = await self._repo.get_task_function_by_id(session, data.task_function_id)
+        task_function = await self._repo.get_task_function_by_id(
+            session, data.task_function_id
+        )
         if not task_function:
             raise ValidationError(
-                f"Task function with ID {data.task_function_id} not found")
+                f"Task function with ID {data.task_function_id} not found"
+            )
 
         # Validate job type exists
         job_type = await self._repo.get_job_type_by_id(session, data.job_type_id)
         if not job_type:
-            raise ValidationError(
-                f"Job type with ID {data.job_type_id} not found")
+            raise ValidationError(f"Job type with ID {data.job_type_id} not found")
 
         # Check for duplicate job (same task function already scheduled)
-        existing = await self._repo.get_job_by_task_function(session, data.task_function_id)
+        existing = await self._repo.get_job_by_task_function(
+            session, data.task_function_id
+        )
         if existing:
             raise ValidationError(
-                f"Job with task function '{task_function.key}' already exists")
+                f"Job with task function '{task_function.key}' already exists"
+            )
 
         job = ScheduledJob(
             task_function_id=data.task_function_id,
@@ -963,9 +1018,7 @@ class SchedulerService:
 
         return await self.create_job(session, job_data, created_by_id)
 
-    async def get_job(
-        self, session: AsyncSession, job_id: str
-    ) -> ScheduledJobResponse:
+    async def get_job(self, session: AsyncSession, job_id: str) -> ScheduledJobResponse:
         """Get a job by ID with computed fields."""
         job = await self._repo.get_job_by_id(session, job_id)
         if not job:
@@ -988,7 +1041,9 @@ class SchedulerService:
         )
 
         # Get current execution status for all jobs in one query
-        execution_status_map = await self._enrich_jobs_with_execution_status(session, jobs)
+        execution_status_map = await self._enrich_jobs_with_execution_status(
+            session, jobs
+        )
 
         # Add execution status to each job object before converting to response
         for job in jobs:
@@ -1020,8 +1075,12 @@ class SchedulerService:
         job_ids = [job.id for job in jobs]
 
         # First, get the status IDs for pending and running
-        pending_status = await self._repo.get_execution_status_by_code(session, "pending")
-        running_status = await self._repo.get_execution_status_by_code(session, "running")
+        pending_status = await self._repo.get_execution_status_by_code(
+            session, "pending"
+        )
+        running_status = await self._repo.get_execution_status_by_code(
+            session, "running"
+        )
 
         # Query executions using status_id directly (more efficient)
         stmt = (
@@ -1030,7 +1089,8 @@ class SchedulerService:
                 and_(
                     ScheduledJobExecution.job_id.in_(job_ids),
                     ScheduledJobExecution.status_id.in_(
-                        [pending_status.id, running_status.id])
+                        [pending_status.id, running_status.id]
+                    ),
                 )
             )
             .options(selectinload(ScheduledJobExecution.status_ref))
@@ -1042,8 +1102,7 @@ class SchedulerService:
         # Create map of job_id -> (status_code, execution_id)
         execution_map = {}
         for exec in executions:
-            execution_map[exec.job_id] = (
-                exec.status_ref.code, exec.execution_id)
+            execution_map[exec.job_id] = (exec.status_ref.code, exec.execution_id)
 
         return execution_map
 
@@ -1093,9 +1152,7 @@ class SchedulerService:
 
         return job
 
-    async def delete_job(
-        self, session: AsyncSession, job_id: str
-    ) -> ScheduledJob:
+    async def delete_job(self, session: AsyncSession, job_id: str) -> ScheduledJob:
         """Soft delete a job."""
         job = await self._repo.get_job_by_id(session, job_id)
         if not job:
@@ -1165,8 +1222,10 @@ class SchedulerService:
             job_id=job_id,
             job_key=job_key,
             running_execution_found=running_execution is not None,
-            running_execution_id=running_execution.execution_id if running_execution else None,
-            triggered_by_user_id=triggered_by_user_id
+            running_execution_id=running_execution.execution_id
+            if running_execution
+            else None,
+            triggered_by_user_id=triggered_by_user_id,
         )
 
         if running_execution:
@@ -1184,7 +1243,9 @@ class SchedulerService:
             raise ValidationError(f"No function found for job '{job_key}'")
 
         # Run the wrapper (creates running execution and launches background task)
-        wrapper = self._create_manual_execution_wrapper(job.id, job_key, func, triggered_by_user_id)
+        wrapper = self._create_manual_execution_wrapper(
+            job.id, job_key, func, triggered_by_user_id
+        )
         execution_id = await wrapper()
 
         # Refresh job to get updated last_run_at
@@ -1195,9 +1256,11 @@ class SchedulerService:
         setattr(job, "current_execution_status", "running")
         setattr(job, "current_execution_id", execution_id)
 
-        logger.info(f"[trigger_job_now] Set execution status on job {job.id}: "
-                    f"status={getattr(job, 'current_execution_status', None)}, "
-                    f"exec_id={getattr(job, 'current_execution_id', None)}")
+        logger.info(
+            f"[trigger_job_now] Set execution status on job {job.id}: "
+            f"status={getattr(job, 'current_execution_status', None)}, "
+            f"exec_id={getattr(job, 'current_execution_id', None)}"
+        )
 
         return execution_id, job
 
@@ -1252,10 +1315,7 @@ class SchedulerService:
             session, job_id, status_id, from_date, to_date, page, per_page
         )
 
-        responses = [
-            await self._to_execution_response(ex)
-            for ex in executions
-        ]
+        responses = [await self._to_execution_response(ex) for ex in executions]
 
         return responses, total
 
@@ -1273,10 +1333,7 @@ class SchedulerService:
             session, None, status_id, from_date, to_date, page, per_page
         )
 
-        responses = [
-            await self._to_execution_response(ex)
-            for ex in executions
-        ]
+        responses = [await self._to_execution_response(ex) for ex in executions]
 
         return responses, total
 
@@ -1291,14 +1348,12 @@ class SchedulerService:
         recent_executions = await self._repo.get_recent_executions(session, 5)
 
         instance_responses = [
-            SchedulerInstanceResponse.model_validate(
-                inst, from_attributes=True)
+            SchedulerInstanceResponse.model_validate(inst, from_attributes=True)
             for inst in active_instances
         ]
 
         execution_responses = [
-            await self._to_execution_response(ex)
-            for ex in recent_executions
+            await self._to_execution_response(ex) for ex in recent_executions
         ]
 
         # Get next scheduled job
@@ -1309,16 +1364,19 @@ class SchedulerService:
                 # Sort by next run time
                 sorted_jobs = sorted(
                     jobs,
-                    key=lambda j: j.next_run_time or datetime.max.replace(
-                        tzinfo=timezone.utc
-                    ),
+                    key=lambda j: j.next_run_time
+                    or datetime.max.replace(tzinfo=timezone.utc),
                 )
                 if sorted_jobs and sorted_jobs[0].next_run_time:
                     # Find job by task function key
                     job_key = sorted_jobs[0].id
-                    task_function = await self._repo.get_task_function_by_key(session, job_key)
+                    task_function = await self._repo.get_task_function_by_key(
+                        session, job_key
+                    )
                     if task_function:
-                        job = await self._repo.get_job_by_task_function(session, task_function.id)
+                        job = await self._repo.get_job_by_task_function(
+                            session, task_function.id
+                        )
                         if job:
                             next_job = await self._to_job_response(session, job)
 
@@ -1394,19 +1452,22 @@ class SchedulerService:
             )
 
         # Get current execution status (might be set via setattr on the job object)
-        current_execution_status = getattr(
-            job, "current_execution_status", None)
+        current_execution_status = getattr(job, "current_execution_status", None)
         current_execution_id = getattr(job, "current_execution_id", None)
 
         # If not set via setattr, query from database (like list_jobs does)
         if current_execution_status is None:
-            execution_map = await self._enrich_jobs_with_execution_status(session, [job])
+            execution_map = await self._enrich_jobs_with_execution_status(
+                session, [job]
+            )
             if job.id in execution_map:
                 current_execution_status, current_execution_id = execution_map[job.id]
 
-        logger.info(f"[_to_job_response] Job {job.id}: "
-                    f"current_execution_status={current_execution_status}, "
-                    f"current_execution_id={current_execution_id}")
+        logger.info(
+            f"[_to_job_response] Job {job.id}: "
+            f"current_execution_status={current_execution_status}, "
+            f"current_execution_id={current_execution_id}"
+        )
 
         return ScheduledJobResponse(
             id=job.id,
@@ -1495,7 +1556,7 @@ def get_scheduler_service() -> SchedulerService:
 # Cleanup job function (can be scheduled as a job itself)
 async def cleanup_history_job() -> str:
     """Job function to clean up old execution history."""
-    from db.maria_database import get_maria_session
+    from db.database import get_maria_session
 
     async for session in get_maria_session():
         service = get_scheduler_service()

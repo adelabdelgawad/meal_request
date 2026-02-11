@@ -6,10 +6,11 @@ from typing import Optional, Tuple, List
 from sqlalchemy import delete, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import LogReplication
+from db.model import LogReplication
+from .base import BaseRepository
 
 
-class LogReplicationRepository:
+class LogReplicationRepository(BaseRepository[LogReplication]):
     """Data access layer for replication logs."""
 
     async def create(
@@ -27,14 +28,14 @@ class LogReplicationRepository:
         """
         try:
             log = LogReplication(**log_data)
-            session.add(log)
-            await session.flush()
+            self.session.add(log)
+            await self.session.flush()
             return log
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise Exception(f"Failed to create replication log: {str(e)}")
 
-    async def get_by_id(self, session: AsyncSession, log_id: str) -> Optional[LogReplication]:
+    async def get_by_id(self, log_id: str) -> Optional[LogReplication]:
         """
         Get a replication log by ID.
 
@@ -46,7 +47,7 @@ class LogReplicationRepository:
             LogReplication instance or None
         """
         stmt = select(LogReplication).where(LogReplication.id == log_id)
-        result = await session.execute(stmt)
+        result = await self.session.execute(stmt)
         return result.scalars().first()
 
     async def query(
@@ -103,7 +104,7 @@ class LogReplicationRepository:
             .subquery()
         )
 
-        count_result = await session.execute(count_stmt)
+        count_result = await self.session.execute(count_stmt)
         total_count = count_result.scalar() or 0
 
         # Order by timestamp descending
@@ -113,12 +114,12 @@ class LogReplicationRepository:
         offset = (page - 1) * per_page
         stmt = stmt.offset(offset).limit(per_page)
 
-        result = await session.execute(stmt)
+        result = await self.session.execute(stmt)
         logs = result.scalars().all()
 
         return logs, total_count
 
-    async def delete(self, session: AsyncSession, log_id: str) -> bool:
+    async def delete(self, log_id: str) -> bool:
         """
         Delete a replication log entry.
 
@@ -130,7 +131,7 @@ class LogReplicationRepository:
             True if deleted, False if not found
         """
         stmt = delete(LogReplication).where(LogReplication.id == log_id)
-        result = await session.execute(stmt)
+        result = await self.session.execute(stmt)
         return result.rowcount > 0
 
     async def delete_older_than(
@@ -147,5 +148,5 @@ class LogReplicationRepository:
             Number of records deleted
         """
         stmt = delete(LogReplication).where(LogReplication.timestamp < cutoff_date)
-        result = await session.execute(stmt)
+        result = await self.session.execute(stmt)
         return result.rowcount

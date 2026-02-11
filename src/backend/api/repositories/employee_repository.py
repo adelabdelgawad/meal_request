@@ -7,34 +7,34 @@ from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import DatabaseError, NotFoundError
-from db.models import Employee, Department
+from db.model import Employee, Department
+from .base import BaseRepository
 from utils.app_schemas import RequestsPageRecord
 from api.schemas.employee_schemas import DepartmentNode, EmployeeRecord
 
 
-class EmployeeRepository:
+class EmployeeRepository(BaseRepository[Employee]):
     """Repository for Employee entity."""
 
-    def __init__(self):
-        pass
+        super().__init__(session)
 
-    async def create(self, session: AsyncSession, employee: Employee) -> Employee:
+    async def create(self, employee: Employee) -> Employee:
         try:
-            session.add(employee)
-            await session.flush()
+            self.session.add(employee)
+            await self.session.flush()
             return employee
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to create employee: {str(e)}")
 
-    async def get_by_id(self, session: AsyncSession, employee_id: int) -> Optional[Employee]:
-        result = await session.execute(
+    async def get_by_id(self, employee_id: int) -> Optional[Employee]:
+        result = await self.session.execute(
             select(Employee).where(Employee.id == employee_id)
         )
         return result.scalar_one_or_none()
 
-    async def get_by_code(self, session: AsyncSession, code: int) -> Optional[Employee]:
-        result = await session.execute(
+    async def get_by_code(self, code: int) -> Optional[Employee]:
+        result = await self.session.execute(
             select(Employee).where(Employee.code == code)
         )
         return result.scalar_one_or_none()
@@ -62,58 +62,58 @@ class EmployeeRepository:
         count_query = select(func.count()).select_from((query).subquery())
 
 
-        count_result = await session.execute(count_query)
+        count_result = await self.session.execute(count_query)
 
 
         total = count_result.scalar() or 0
 
         offset = calculate_offset(page, per_page)
-        result = await session.execute(
+        result = await self.session.execute(
             query.offset(offset).limit(per_page)
         )
-        return result.scalars().all(), total
+        return list(result.scalars().all()), total
 
-    async def update(self, session: AsyncSession, employee_id: int, employee_data: dict) -> Employee:
-        employee = await self.get_by_id(session, employee_id)
+    async def update(self, employee_id: int, employee_data: dict) -> Employee:
+        employee = await self.get_by_id(employee_id)
         if not employee:
-            raise NotFoundError(entity="Employee", identifier=employee_id)
+            raise NotFoundError(f"Employee with ID {employee_id} not found")
 
         try:
             for key, value in employee_data.items():
                 if value is not None and hasattr(employee, key):
                     setattr(employee, key, value)
 
-            await session.flush()
+            await self.session.flush()
             return employee
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to update employee: {str(e)}")
 
-    async def delete(self, session: AsyncSession, employee_id: int) -> None:
-        employee = await self.get_by_id(session, employee_id)
+    async def delete(self, employee_id: int) -> None:
+        employee = await self.get_by_id(employee_id)
         if not employee:
-            raise NotFoundError(entity="Employee", identifier=employee_id)
+            raise NotFoundError(f"Employee with ID {employee_id} not found")
 
         employee.is_active = False
-        await session.flush()
+        await self.session.flush()
 
     # Specialized CRUD compatibility methods
-    async def get_active_employees(self, session: AsyncSession) -> Optional[List[Employee]]:
+    async def get_active_employees(self) -> Optional[List[Employee]]:
         """Get all active employees."""
-        result = await session.execute(
+        result = await self.session.execute(
             select(Employee).where(Employee.is_active)
         )
         return result.scalars().all()
 
-    async def deactivate_all(self, session: AsyncSession) -> bool:
+    async def deactivate_all(self) -> bool:
         """Deactivate all employees (set is_active to False)."""
         try:
             stmt = update(Employee).values(is_active=False)
-            await session.execute(stmt)
-            await session.flush()
+            await self.session.execute(stmt)
+            await self.session.flush()
             return True
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to deactivate all employees: {str(e)}")
 
     async def read_employees_for_request_page(
@@ -137,7 +137,7 @@ class EmployeeRepository:
         )
 
         try:
-            result = await session.execute(stmt)
+            result = await self.session.execute(stmt)
             rows = result.fetchall()
 
             if not rows:
@@ -173,7 +173,7 @@ class EmployeeRepository:
                 Department.name_ar,
                 Department.parent_id,
             )
-            dept_result = await session.execute(dept_stmt)
+            dept_result = await self.session.execute(dept_stmt)
             dept_rows = dept_result.fetchall()
 
             for row in dept_rows:
@@ -261,14 +261,14 @@ class EmployeeRepository:
 
         try:
             # Get employees
-            emp_result = await session.execute(emp_stmt)
+            emp_result = await self.session.execute(emp_stmt)
             emp_rows = emp_result.fetchall()
 
             if not emp_rows:
                 return None
 
             # Get all departments
-            dept_result = await session.execute(dept_stmt)
+            dept_result = await self.session.execute(dept_stmt)
             dept_rows = dept_result.fetchall()
 
             # Build department hierarchy map
@@ -350,7 +350,7 @@ class EmployeeRepository:
             )
 
     # Bulk Operations
-    async def bulk_create(self, session: AsyncSession, employees: List[Employee]) -> List[Employee]:
+    async def bulk_create(self, employees: List[Employee]) -> List[Employee]:
         """
         Create multiple employees in a single operation.
 
@@ -366,10 +366,10 @@ class EmployeeRepository:
         """
         try:
             session.add_all(employees)
-            await session.flush()
+            await self.session.flush()
             return employees
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to bulk create employees: {str(e)}")
 
     async def bulk_update_status(
@@ -398,14 +398,14 @@ class EmployeeRepository:
                 .where(Employee.id.in_(employee_ids))
                 .values(is_active=is_active)
             )
-            result = await session.execute(stmt)
-            await session.flush()
+            result = await self.session.execute(stmt)
+            await self.session.flush()
             return result.rowcount
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to bulk update employee status: {str(e)}")
 
-    async def bulk_delete(self, session: AsyncSession, employee_ids: List[int]) -> int:
+    async def bulk_delete(self, employee_ids: List[int]) -> int:
         """
         Soft delete multiple employees in a single operation.
 
@@ -425,9 +425,9 @@ class EmployeeRepository:
                 .where(Employee.id.in_(employee_ids))
                 .values(is_active=False)
             )
-            result = await session.execute(stmt)
-            await session.flush()
+            result = await self.session.execute(stmt)
+            await self.session.flush()
             return result.rowcount
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to bulk delete employees: {str(e)}")

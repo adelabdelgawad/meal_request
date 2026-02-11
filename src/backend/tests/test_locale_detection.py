@@ -7,8 +7,9 @@ from sqlalchemy.orm import sessionmaker
 from unittest.mock import Mock, patch
 
 from api.deps import get_locale, parse_accept_language
-from db.models import Base, User
-from settings import settings
+from db.model import User
+from sqlmodel import SQLModel as Base
+from core.config import settings
 
 
 # Test database URL (in-memory SQLite for testing)
@@ -188,7 +189,7 @@ async def test_locale_precedence_default_last(test_db):
             accept_language=None,  # No header
             session=test_db,
         )
-        assert locale == settings.DEFAULT_LOCALE
+        assert locale == settings.locale.default_locale
 
 
 # Locale Validation Tests
@@ -328,7 +329,7 @@ async def test_locale_malformed_accept_language_continues_to_default(test_db):
             session=test_db,
         )
         # Should fall back to default
-        assert locale == settings.DEFAULT_LOCALE
+        assert locale == settings.locale.default_locale
 
 
 # Case Sensitivity Tests

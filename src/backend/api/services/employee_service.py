@@ -7,20 +7,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.repositories.employee_repository import EmployeeRepository
 from api.schemas.employee_schemas import DepartmentNode
 from core.exceptions import NotFoundError
-from db.models import Employee
+from db.model import Employee
 from utils.app_schemas import RequestsPageRecord
 
 
 class EmployeeService:
     """Service for employee management operations."""
 
-    def __init__(self):
+    def __init__(self, session: AsyncSession):
         """Initialize service."""
-        self._repo = EmployeeRepository()
+        self.session = session
+        self._repo = EmployeeRepository(session)
 
     async def create_employee(
         self,
-        session: AsyncSession,
         id: int,
         code: int,
         department_id: int,
@@ -32,7 +32,6 @@ class EmployeeService:
         Create a new employee or update existing one (for replication).
 
         Args:
-            session: Database session
             id: HRIS Employee ID (used as primary key)
             code: Unique employee code
             department_id: ID of department
@@ -47,7 +46,7 @@ class EmployeeService:
             ConflictError: If employee code already exists (in strict mode)
         """
         # Check if employee already exists by ID
-        existing = await self._repo.get_by_id(session, id)
+        existing = await self._repo.get_by_id(id)
         if existing:
             # Update existing employee instead of raising error (for replication)
             update_data = {
@@ -60,7 +59,6 @@ class EmployeeService:
             }
 
             return await self._repo.update(
-                session,
                 existing.id,
                 update_data,
             )
@@ -75,20 +73,16 @@ class EmployeeService:
             is_active=True,
         )
 
-        return await self._repo.create(session, employee)
+        return await self._repo.create(employee)
 
-    async def get_employee(
-        self, session: AsyncSession, employee_id: int
-    ) -> Employee:
+    async def get_employee(self, employee_id: int) -> Employee:
         """Get an employee by ID."""
-        employee = await self._repo.get_by_id(session, employee_id)
+        employee = await self._repo.get_by_id(employee_id)
         if not employee:
             raise NotFoundError(entity="Employee", identifier=employee_id)
         return employee
 
-    async def get_employee_by_code(
-        self, session: AsyncSession, code: int
-    ) -> Employee:
+    async def get_employee_by_code(self, session: AsyncSession, code: int) -> Employee:
         """Get an employee by code."""
         employee = await self._repo.get_by_code(session, code)
         if not employee:
@@ -97,7 +91,6 @@ class EmployeeService:
 
     async def list_employees(
         self,
-        session: AsyncSession,
         page: int = 1,
         per_page: int = 25,
         is_active: Optional[bool] = None,
@@ -105,7 +98,6 @@ class EmployeeService:
     ) -> Tuple[List[Employee], int]:
         """List employees with optional filtering."""
         return await self._repo.list(
-            session,
             page=page,
             per_page=per_page,
             is_active=is_active,
@@ -114,7 +106,6 @@ class EmployeeService:
 
     async def update_employee(
         self,
-        session: AsyncSession,
         employee_id: int,
         name_en: Optional[str] = None,
         name_ar: Optional[str] = None,
@@ -135,22 +126,19 @@ class EmployeeService:
         if department_id is not None:
             update_data["department_id"] = department_id
 
-        return await self._repo.update(session, employee_id, update_data)
+        return await self._repo.update(employee_id, update_data)
 
-    async def deactivate_employee(
-        self, session: AsyncSession, employee_id: int
-    ) -> None:
+    async def deactivate_employee(self, employee_id: int) -> None:
         """Deactivate an employee (soft delete)."""
-        await self._repo.delete(session, employee_id)
+        await self._repo.delete(employee_id)
 
     async def get_active_employees_grouped_flat(
-        self, session: AsyncSession, department_ids: Optional[List[int]] = None
+        self, department_ids: Optional[List[int]] = None
     ) -> Optional[Dict[str, List[RequestsPageRecord]]]:
         """
         Get active employees grouped by department name (flat structure).
 
         Args:
-            session: Database session
             department_ids: Optional list of department IDs to filter by.
                            If None or empty, returns all employees.
                            If provided, only returns employees from those departments.
@@ -159,11 +147,11 @@ class EmployeeService:
             Dict mapping parent department name to list of employees
         """
         return await self._repo.read_employees_for_request_page_flat(
-            session, department_ids=department_ids
+            department_ids=department_ids
         )
 
     async def get_active_employees_grouped_hierarchical(
-        self, session: AsyncSession
+        self,
     ) -> Optional[List[DepartmentNode]]:
         """Get active employees grouped hierarchically by department."""
-        return await self._repo.read_employees_for_request_page(session)
+        return await self._repo.read_employees_for_request_page()

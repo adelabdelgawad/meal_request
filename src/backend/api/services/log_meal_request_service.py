@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.repositories.log_meal_request_repository import LogMealRequestRepository
 from api.schemas.log_meal_request_schemas import LogMealRequestCreate
 from core.exceptions import NotFoundError
-from db.models import LogMealRequest
+from db.model import LogMealRequest
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +18,13 @@ logger = logging.getLogger(__name__)
 class LogMealRequestService:
     """Service for meal request audit log management operations."""
 
-    def __init__(self):
+    def __init__(self, session: AsyncSession):
         """Initialize service."""
-        self._repo = LogMealRequestRepository()
+        self.session = session
+        self._repo = LogMealRequestRepository(session)
 
     async def log_meal_request(
         self,
-        session: AsyncSession,
         user_id: str,
         action: str,
         is_successful: bool,
@@ -37,11 +37,10 @@ class LogMealRequestService:
         Log a meal request operation. Non-blocking - errors are logged but not raised.
 
         Args:
-            session: Database session
-            user_id: ID of user performing the action
+            user_id: ID of user performing action
             action: Action type (create, update_status, delete, copy, approve, reject)
-            is_successful: Whether the operation succeeded
-            meal_request_id: ID of the meal request (if applicable)
+            is_successful: Whether operation succeeded
+            meal_request_id: ID of meal request (if applicable)
             old_value: Previous state (dict, will be JSON serialized)
             new_value: New state (dict, will be JSON serialized)
             result: Additional result data (dict, will be JSON serialized)
@@ -73,12 +72,11 @@ class LogMealRequestService:
                 f"meal_request_id={meal_request_id}, user_id={user_id}, error={e}"
             )
 
-    async def get_log(self, session: AsyncSession, log_id: str) -> LogMealRequest:
+    async def get_log(self, log_id: str) -> LogMealRequest:
         """
         Get a meal request audit log by ID.
 
         Args:
-            session: Database session
             log_id: Log ID (UUID string)
 
         Returns:
@@ -87,14 +85,13 @@ class LogMealRequestService:
         Raises:
             NotFoundError: If log not found
         """
-        log = await self._repo.get_by_id(session, log_id)
+        log = await self._repo.get_by_id(log_id)
         if not log:
             raise NotFoundError(entity="LogMealRequest", identifier=log_id)
         return log
 
     async def get_logs_for_meal_request(
         self,
-        session: AsyncSession,
         meal_request_id: int,
         page: int = 1,
         per_page: int = 25,
@@ -103,7 +100,6 @@ class LogMealRequestService:
         Get audit logs for a specific meal request.
 
         Args:
-            session: Database session
             meal_request_id: Meal request ID
             page: Page number (1-indexed)
             per_page: Items per page
@@ -112,12 +108,11 @@ class LogMealRequestService:
             Tuple of (list of logs, total count)
         """
         return await self._repo.get_by_meal_request_id(
-            session, meal_request_id, page=page, per_page=per_page
+            meal_request_id, page=page, per_page=per_page
         )
 
     async def query_logs(
         self,
-        session: AsyncSession,
         user_id: Optional[str] = None,
         meal_request_id: Optional[int] = None,
         action: Optional[str] = None,
@@ -130,7 +125,6 @@ class LogMealRequestService:
         Query meal request audit logs with filters.
 
         Args:
-            session: Database session
             user_id: Filter by user ID
             meal_request_id: Filter by meal request ID
             action: Filter by action type
@@ -143,7 +137,6 @@ class LogMealRequestService:
             Tuple of (list of logs, total count)
         """
         return await self._repo.query(
-            session,
             user_id=user_id,
             meal_request_id=meal_request_id,
             action=action,
@@ -153,15 +146,14 @@ class LogMealRequestService:
             per_page=per_page,
         )
 
-    async def delete_log(self, session: AsyncSession, log_id: str) -> None:
+    async def delete_log(self, log_id: str) -> None:
         """
         Delete a meal request audit log.
 
         Args:
-            session: Database session
             log_id: Log ID (UUID string)
 
         Raises:
             NotFoundError: If log not found
         """
-        await self._repo.delete(session, log_id)
+        await self._repo.delete(log_id)

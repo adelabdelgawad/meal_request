@@ -9,19 +9,19 @@ from api.repositories.department_assignment_repository import (
     DepartmentAssignmentRepository,
 )
 from core.exceptions import NotFoundError
-from db.models import DepartmentAssignment
+from db.model import DepartmentAssignment
 
 
 class DepartmentAssignmentService:
     """Service for department assignment management."""
 
-    def __init__(self):
+    def __init__(self, session: AsyncSession):
         """Initialize service."""
-        self._repo = DepartmentAssignmentRepository()
+        self.session = session
+        self._repo = DepartmentAssignmentRepository(session)
 
     async def assign_user_to_department(
         self,
-        session: AsyncSession,
         user_id: str,
         department_id: int,
         created_by_id: Optional[str] = None,
@@ -31,7 +31,6 @@ class DepartmentAssignmentService:
         Assign a user to a department.
 
         Args:
-            session: AsyncSession
             user_id: ID of user
             department_id: ID of department
             created_by_id: Optional ID of user who created this assignment
@@ -48,25 +47,24 @@ class DepartmentAssignmentService:
             is_active=True,
         )
 
-        return await self._repo.create(session, assignment)
+        return await self._repo.create(assignment)
 
-    async def get_assignment(self, session: AsyncSession, assignment_id: int) -> DepartmentAssignment:
+    async def get_assignment(self, assignment_id: int) -> DepartmentAssignment:
         """Get a department assignment by ID."""
-        assignment = await self._repo.get_by_id(session, assignment_id)
+        assignment = await self._repo.get_by_id(assignment_id)
         if not assignment:
             raise NotFoundError(entity="DepartmentAssignment", identifier=assignment_id)
         return assignment
 
     async def list_assignments(
         self,
-        session: AsyncSession,
         page: int = 1,
         per_page: int = 25,
         user_id: Optional[UUID] = None,
         department_id: Optional[int] = None,
     ) -> Tuple[List[DepartmentAssignment], int]:
         """List department assignments with optional filtering."""
-        return await self._repo.list(session, 
+        return await self._repo.list(
             page=page,
             per_page=per_page,
             user_id=user_id,
@@ -75,7 +73,6 @@ class DepartmentAssignmentService:
 
     async def update_assignment(
         self,
-        session: AsyncSession,
         assignment_id: int,
         updated_by_id: Optional[str] = None,
         **kwargs,
@@ -84,7 +81,6 @@ class DepartmentAssignmentService:
         Update a department assignment.
 
         Args:
-            session: AsyncSession
             assignment_id: ID of assignment to update
             updated_by_id: Optional ID of user making this update
             **kwargs: Additional fields to update
@@ -96,8 +92,8 @@ class DepartmentAssignmentService:
         if updated_by_id is not None:
             update_data["updated_by_id"] = updated_by_id
 
-        return await self._repo.update(session, assignment_id, update_data)
+        return await self._repo.update(assignment_id, update_data)
 
-    async def remove_assignment(self, session: AsyncSession, assignment_id: int) -> None:
+    async def remove_assignment(self, assignment_id: int) -> None:
         """Remove a department assignment."""
-        await self._repo.delete(session, assignment_id)
+        await self._repo.delete(assignment_id)

@@ -4,8 +4,8 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from db.hris_database import get_hris_session
-from api.deps import get_session
-from settings import settings
+from db.database import get_maria_session as get_session
+from core.config import settings
 from utils.replicate_hris import replicate
 
 # === Logging Setup ===

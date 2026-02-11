@@ -8,8 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.repositories.hris_repository import HRISRepository
 from core.exceptions import ValidationError
-from db.schemas import Employee, Department, AttendanceRecord, EmployeeShift, DepartmentAssignmentRecord
-from settings import settings
+from db.schemas import (
+    Employee,
+    Department,
+    AttendanceRecord,
+    EmployeeShift,
+    DepartmentAssignmentRecord,
+)
+from core.config import settings
 
 
 class HRISService:
@@ -17,7 +23,7 @@ class HRISService:
 
     def __init__(self):
         """Initialize HRIS service."""
-        self._repo = HRISRepository()
+        self._repo = HRISRepository(self.session)
 
     async def get_active_employees(
         self,
@@ -216,7 +222,9 @@ class HRISService:
 
     # === Replication Methods ===
 
-    async def read_hris_departments(self, session: AsyncSession) -> Optional[List[Department]]:
+    async def read_hris_departments(
+        self, session: AsyncSession
+    ) -> Optional[List[Department]]:
         """
         Read all departments from HRIS for replication.
 
@@ -228,7 +236,9 @@ class HRISService:
         """
         return await self._repo.get_departments(session)
 
-    async def read_hris_active_employees(self, session: AsyncSession) -> Optional[List[Employee]]:
+    async def read_hris_active_employees(
+        self, session: AsyncSession
+    ) -> Optional[List[Employee]]:
         """
         Read all active employees from HRIS for replication.
 
@@ -270,6 +280,7 @@ class HRISService:
             session: Local database AsyncSession
         """
         from api.repositories.security_user_repository import SecurityUserRepository
+
         security_user_repo = SecurityUserRepository()
         await security_user_repo.deactivate_all(session)
 
@@ -282,7 +293,9 @@ class HRISService:
         """
         await self._repo.delete_all_department_assignments(session)
 
-    async def read_hris_department_assignments(self, session: AsyncSession) -> Optional[List[DepartmentAssignmentRecord]]:
+    async def read_hris_department_assignments(
+        self, session: AsyncSession
+    ) -> Optional[List[DepartmentAssignmentRecord]]:
         """
         Read department assignments from HRIS TMS_ForwardEdit table for replication.
 
@@ -294,7 +307,9 @@ class HRISService:
         """
         return await self._repo.get_department_assignments(session)
 
-    async def deactivate_hris_department_assignments(self, session: AsyncSession) -> int:
+    async def deactivate_hris_department_assignments(
+        self, session: AsyncSession
+    ) -> int:
         """
         Deactivate existing HRIS-synced department assignments only.
 
@@ -340,9 +355,12 @@ class HRISService:
         not_found_count = 0
 
         import logging
+
         logger = logging.getLogger(__name__)
 
-        logger.info(f"Processing {len(security_users)} SecurityUsers for Employee linking")
+        logger.info(
+            f"Processing {len(security_users)} SecurityUsers for Employee linking"
+        )
         logger.info("Matching: SecurityUser.emp_id (HRIS) → Employee.id (HRIS ID)")
 
         no_emp_id_count = 0
@@ -365,7 +383,9 @@ class HRISService:
                 if employee:
                     # CRITICAL FIX: Look up local SecurityUser by username, not by HRIS ID
                     # The HRIS SecurityUser ID doesn't match the local auto-increment ID
-                    local_security_user = await security_repo.get_by_username(session, sec_user.user_name)
+                    local_security_user = await security_repo.get_by_username(
+                        session, sec_user.user_name
+                    )
 
                     if local_security_user:
                         # Update local SecurityUser to link to local Employee
@@ -422,9 +442,10 @@ class HRISService:
             Number of users successfully linked to employees
         """
         from sqlalchemy import select, update
-        from db.models import User, SecurityUser
+        from db.model import User, SecurityUser
 
         import logging
+
         logger = logging.getLogger(__name__)
 
         linked_count = 0
@@ -435,10 +456,14 @@ class HRISService:
             result = await session.execute(stmt)
             security_users = result.scalars().all()
 
-            logger.info(f"Found {len(security_users)} SecurityUsers with employee_id set")
+            logger.info(
+                f"Found {len(security_users)} SecurityUsers with employee_id set"
+            )
 
             if not security_users:
-                logger.warning("No SecurityUsers have employee_id set - cannot link any Users")
+                logger.warning(
+                    "No SecurityUsers have employee_id set - cannot link any Users"
+                )
                 return 0
 
             # Create mapping of user_name -> employee_id
@@ -446,24 +471,36 @@ class HRISService:
                 su.user_name: su.employee_id for su in security_users
             }
 
-            logger.info(f"Created mapping for {len(username_to_employee)} usernames to employees")
-            logger.info(f"Sample usernames in mapping: {list(username_to_employee.keys())[:5]}")
+            logger.info(
+                f"Created mapping for {len(username_to_employee)} usernames to employees"
+            )
+            logger.info(
+                f"Sample usernames in mapping: {list(username_to_employee.keys())[:5]}"
+            )
 
             # Get all Users to see how many exist
             user_stmt = select(User)
             user_result = await session.execute(user_stmt)
             all_users = user_result.scalars().all()
             logger.info(f"Total Users in database: {len(all_users)}")
-            logger.info(f"Sample usernames in User table: {[u.username for u in all_users[:5]]}")
+            logger.info(
+                f"Sample usernames in User table: {[u.username for u in all_users[:5]]}"
+            )
 
             # Diagnostic: Check username overlap
             user_usernames = {u.username.lower() for u in all_users}
             mapping_usernames = {un.lower() for un in username_to_employee.keys()}
             overlap = user_usernames & mapping_usernames
-            logger.info(f"Username overlap: {len(overlap)} out of {len(user_usernames)} users match SecurityUser mapping")
+            logger.info(
+                f"Username overlap: {len(overlap)} out of {len(user_usernames)} users match SecurityUser mapping"
+            )
             if len(overlap) < len(user_usernames):
-                logger.warning(f"Username mismatch detected! Users not in mapping: {sorted(user_usernames - mapping_usernames)[:10]}")
-                logger.warning(f"Mapping usernames not in Users: {sorted(mapping_usernames - user_usernames)[:10]}")
+                logger.warning(
+                    f"Username mismatch detected! Users not in mapping: {sorted(user_usernames - mapping_usernames)[:10]}"
+                )
+                logger.warning(
+                    f"Mapping usernames not in Users: {sorted(mapping_usernames - user_usernames)[:10]}"
+                )
 
             # Update Users with matching usernames (case-insensitive)
             for username, employee_id in username_to_employee.items():
@@ -477,7 +514,9 @@ class HRISService:
                 if result.rowcount > 0:
                     linked_count += result.rowcount
                     if linked_count <= 10:  # Log first 10 successful links
-                        logger.info(f"Linked User '{username}' to employee_id {employee_id}")
+                        logger.info(
+                            f"Linked User '{username}' to employee_id {employee_id}"
+                        )
 
             await session.flush()
 
@@ -507,7 +546,7 @@ class HRISService:
             time_diff = record.time_out - record.time_in
             hours_diff = time_diff.total_seconds() / 3600
 
-            if hours_diff < settings.ATTENDANCE_MIN_SHIFT_HOURS:
+            if hours_diff < settings.attendance.min_shift_hours:
                 return True  # Out too soon = still on shift
 
         return False  # Valid out = shift completed
@@ -633,8 +672,7 @@ class HRISService:
         )
 
     async def sync_user_active_status_from_security_user(
-        self,
-        session: AsyncSession
+        self, session: AsyncSession
     ) -> Dict[str, int]:
         """
         Sync User.is_active based on SecurityUser.is_deleted/is_locked status.
@@ -652,7 +690,7 @@ class HRISService:
             Dict with stats: {"deactivated": int, "reactivated": int, "skipped_manual": int, "skipped_override": int}
         """
         from sqlalchemy import update, select, and_, or_
-        from db.models import User, SecurityUser
+        from db.model import User, SecurityUser
         import logging
 
         logger = logging.getLogger(__name__)
@@ -665,16 +703,19 @@ class HRISService:
 
         try:
             # Count manual users (will be skipped)
-            manual_count_stmt = select(func.count()).select_from(User).where(User.user_source == 'manual')
+            manual_count_stmt = (
+                select(func.count())
+                .select_from(User)
+                .where(User.user_source == "manual")
+            )
             manual_result = await session.execute(manual_count_stmt)
             stats["skipped_manual"] = manual_result.scalar() or 0
 
             # Count override users (will be skipped)
-            override_count_stmt = select(func.count()).select_from(User).where(
-                and_(
-                    User.user_source == 'hris',
-                    User.status_override == True
-                )
+            override_count_stmt = (
+                select(func.count())
+                .select_from(User)
+                .where(and_(User.user_source == "hris", User.status_override == True))
             )
             override_result = await session.execute(override_count_stmt)
             stats["skipped_override"] = override_result.scalar() or 0
@@ -686,24 +727,20 @@ class HRISService:
 
             # Deactivate HRIS users whose SecurityUser is deleted or locked
             # Build subquery to get usernames that should be deactivated
-            deactivate_subquery = (
-                select(SecurityUser.user_name)
-                .where(
-                    or_(
-                        SecurityUser.is_deleted == True,
-                        SecurityUser.is_locked == True
-                    )
-                )
+            deactivate_subquery = select(SecurityUser.user_name).where(
+                or_(SecurityUser.is_deleted == True, SecurityUser.is_locked == True)
             )
 
             deactivate_stmt = (
                 update(User)
                 .where(
                     and_(
-                        User.user_source == 'hris',          # Only HRIS users
-                        User.status_override == False,       # Respect overrides
-                        User.username.in_(deactivate_subquery),  # SecurityUser is deleted/locked
-                        User.is_active == True               # Only update active users
+                        User.user_source == "hris",  # Only HRIS users
+                        User.status_override == False,  # Respect overrides
+                        User.username.in_(
+                            deactivate_subquery
+                        ),  # SecurityUser is deleted/locked
+                        User.is_active == True,  # Only update active users
                     )
                 )
                 .values(is_active=False)
@@ -713,28 +750,26 @@ class HRISService:
             stats["deactivated"] = deactivate_result.rowcount
             await session.flush()
 
-            logger.info(f"Deactivated {stats['deactivated']} HRIS users based on SecurityUser status")
+            logger.info(
+                f"Deactivated {stats['deactivated']} HRIS users based on SecurityUser status"
+            )
 
             # Reactivate HRIS users whose SecurityUser is active
             # Build subquery to get usernames that should be reactivated
-            reactivate_subquery = (
-                select(SecurityUser.user_name)
-                .where(
-                    and_(
-                        SecurityUser.is_deleted == False,
-                        SecurityUser.is_locked == False
-                    )
-                )
+            reactivate_subquery = select(SecurityUser.user_name).where(
+                and_(SecurityUser.is_deleted == False, SecurityUser.is_locked == False)
             )
 
             reactivate_stmt = (
                 update(User)
                 .where(
                     and_(
-                        User.user_source == 'hris',          # Only HRIS users
-                        User.status_override == False,       # Respect overrides
-                        User.username.in_(reactivate_subquery),  # SecurityUser is active
-                        User.is_active == False              # Only update inactive users
+                        User.user_source == "hris",  # Only HRIS users
+                        User.status_override == False,  # Respect overrides
+                        User.username.in_(
+                            reactivate_subquery
+                        ),  # SecurityUser is active
+                        User.is_active == False,  # Only update inactive users
                     )
                 )
                 .values(is_active=True)
@@ -744,7 +779,9 @@ class HRISService:
             stats["reactivated"] = reactivate_result.rowcount
             await session.flush()
 
-            logger.info(f"Reactivated {stats['reactivated']} HRIS users based on SecurityUser status")
+            logger.info(
+                f"Reactivated {stats['reactivated']} HRIS users based on SecurityUser status"
+            )
 
             logger.info(
                 f"User.is_active sync complete: {stats['deactivated']} deactivated, "
@@ -756,5 +793,8 @@ class HRISService:
             return stats
 
         except Exception as e:
-            logger.error(f"Failed to sync user active status from SecurityUser: {e}", exc_info=True)
+            logger.error(
+                f"Failed to sync user active status from SecurityUser: {e}",
+                exc_info=True,
+            )
             raise

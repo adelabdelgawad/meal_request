@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 
 from db.schemas import AttendanceRecord
 from api.services.hris_service import HRISService
-from settings import settings
+from core.config import settings
 
 
 class TestOnShiftFiltering:
@@ -20,7 +20,7 @@ class TestOnShiftFiltering:
         """Initialize service for each test."""
         self.service = HRISService()
         # Use the configured minimum shift hours
-        self.min_hours = settings.ATTENDANCE_MIN_SHIFT_HOURS
+        self.min_hours = settings.attendance.min_shift_hours
 
     def test_no_out_time_is_on_shift(self):
         """Employee with no out time should be on shift."""

@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
-from app import app
+from main import app
 from api.schemas.user_schemas import UserResponse
 from api.schemas.role_schemas import RoleResponse
 
@@ -124,7 +124,6 @@ class TestLocaleEndpointCamelCase:
         # Even though this particular endpoint has simple fields,
         # it demonstrates the pattern
 
-
         # Would require auth:
         # response = client.post(
         #     "/api/v1/me/locale",
@@ -150,7 +149,7 @@ class TestRequestBodyCamelCaseAcceptance:
             "isDomainUser": False,  # camelCase
             "isSuperAdmin": False,  # camelCase
             "roleId": 1,  # camelCase
-            "password": "password123"
+            "password": "password123",
         }
 
         # Schema should accept this
@@ -172,7 +171,7 @@ class TestRequestBodyCamelCaseAcceptance:
             "nameEn": "Administrator",  # camelCase
             "nameAr": "مدير",  # camelCase
             "descriptionEn": "Full access",  # camelCase
-            "descriptionAr": "وصول كامل"  # camelCase
+            "descriptionAr": "وصول كامل",  # camelCase
         }
 
         role = RoleCreate(**role_data)
@@ -198,19 +197,21 @@ class TestMixedCaseCompatibility:
             role_id=1,
             password="pass123",
             is_domain_user=False,
-            is_super_admin=False
+            is_super_admin=False,
         )
 
         # Frontend uses camelCase
-        user_camel = UserCreate(**{
-            "username": "user2",
-            "fullName": "User Two",
-            "isActive": False,
-            "roleId": 2,
-            "password": "pass456",
-            "isDomainUser": True,
-            "isSuperAdmin": True
-        })
+        user_camel = UserCreate(
+            **{
+                "username": "user2",
+                "fullName": "User Two",
+                "isActive": False,
+                "roleId": 2,
+                "password": "pass456",
+                "isDomainUser": True,
+                "isSuperAdmin": True,
+            }
+        )
 
         assert user_snake.full_name == "User One"
         assert user_camel.full_name == "User Two"
@@ -237,7 +238,7 @@ class TestContractValidation:
             is_super_admin=False,
             role_id=1,
             created_at=now,
-            updated_at=now
+            updated_at=now,
         )
 
         # Simulate API serialization
@@ -251,7 +252,7 @@ class TestContractValidation:
             "isSuperAdmin",
             "roleId",
             "createdAt",
-            "updatedAt"
+            "updatedAt",
         }
 
         # Verify all required camelCase keys are present
@@ -266,7 +267,7 @@ class TestContractValidation:
             "is_super_admin",
             "role_id",
             "created_at",
-            "updated_at"
+            "updated_at",
         }
 
         for key in forbidden_snake_keys:
@@ -283,7 +284,7 @@ class TestContractValidation:
             description_en="Administrator role",
             description_ar="دور المسؤول",
             created_at=now,
-            updated_at=now
+            updated_at=now,
         )
 
         json_output = role.model_dump(by_alias=True)
@@ -318,7 +319,7 @@ class TestSerializationHelpers:
             is_super_admin=False,
             role_id=1,
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
 
         # Recommended pattern for API responses
@@ -339,7 +340,7 @@ class TestSerializationHelpers:
         # Partial update (some fields None)
         update = UserUpdate(
             full_name="Updated Name",
-            is_active=False
+            is_active=False,
             # Other fields are None
         )
 

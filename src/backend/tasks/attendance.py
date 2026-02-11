@@ -10,7 +10,7 @@ import logging
 from typing import List, Optional
 
 from celery import shared_task
-from settings import settings
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ def _run_async(coro):
         # Loop is running - we need to run in a new thread with a new event loop
         logger.debug("Detected running event loop - running coroutine in new thread")
         import concurrent.futures
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(asyncio.run, coro)
             return future.result()
@@ -90,7 +91,7 @@ def sync_attendance_task(
     async def _execute():
         from api.repositories.scheduler_repository import SchedulerRepository
         from api.services.attendance_sync_service import AttendanceSyncService
-        from db.maria_database import DatabaseSessionLocal, database_engine
+        from db.database import DatabaseSessionLocal, database_engine
         from db.hris_database import _get_hris_session_maker, dispose_hris_engine
 
         scheduler_repo = SchedulerRepository()
@@ -107,7 +108,11 @@ def sync_attendance_task(
                     try:
                         # Run the sync
                         service = AttendanceSyncService()
-                        lookback = months_back if months_back is not None else settings.ATTENDANCE_SYNC_MONTHS_BACK
+                        lookback = (
+                            months_back
+                            if months_back is not None
+                            else settings.attendance.sync_months_back
+                        )
 
                         result = await service.sync_sliding_window(
                             session=app_session,
@@ -130,7 +135,9 @@ def sync_attendance_task(
                         }
 
                     except Exception as e:
-                        logger.error(f"Error during attendance sync: {e}", exc_info=True)
+                        logger.error(
+                            f"Error during attendance sync: {e}", exc_info=True
+                        )
                         error_message = str(e)
 
                         # Rollback on error
@@ -148,7 +155,9 @@ def sync_attendance_task(
                         if execution_id and app_session:
                             try:
                                 completed_at = datetime.now(timezone.utc)
-                                duration_ms = int((completed_at - started_at).total_seconds() * 1000)
+                                duration_ms = int(
+                                    (completed_at - started_at).total_seconds() * 1000
+                                )
 
                                 if success:
                                     # Get success status
@@ -167,7 +176,9 @@ def sync_attendance_task(
                                             },
                                         )
                                         await app_session.commit()
-                                        logger.info(f"✅ Updated execution {execution_id} to SUCCESS")
+                                        logger.info(
+                                            f"✅ Updated execution {execution_id} to SUCCESS"
+                                        )
                                 else:
                                     # Get failed status
                                     status_obj = await scheduler_repo.get_execution_status_by_code(
@@ -185,9 +196,13 @@ def sync_attendance_task(
                                             },
                                         )
                                         await app_session.commit()
-                                        logger.info(f"❌ Updated execution {execution_id} to FAILED: {error_message}")
+                                        logger.info(
+                                            f"❌ Updated execution {execution_id} to FAILED: {error_message}"
+                                        )
                             except Exception as update_err:
-                                logger.error(f"Failed to update execution status in finally block: {update_err}")
+                                logger.error(
+                                    f"Failed to update execution status in finally block: {update_err}"
+                                )
 
         except Exception as e:
             logger.error(f"Error during Celery attendance sync: {e}")
@@ -196,7 +211,9 @@ def sync_attendance_task(
             # Dispose engines before event loop closes to prevent "Event loop is closed" warnings
             # This is critical for Celery tasks since asyncio.run() creates/destroys loops per task
             # The singleton pattern in hris_database will recreate the engine on next task
-            logger.debug("Disposing database engines to prevent event loop cleanup warnings...")
+            logger.debug(
+                "Disposing database engines to prevent event loop cleanup warnings..."
+            )
             try:
                 await dispose_hris_engine()
                 logger.debug("HRIS engine disposed and globals reset")
@@ -212,7 +229,9 @@ def sync_attendance_task(
         return result_dict
 
     try:
-        logger.info(f"Starting Celery attendance sync task (execution_id: {execution_id}, triggered_by: {triggered_by_user_id or 'scheduled'})")
+        logger.info(
+            f"Starting Celery attendance sync task (execution_id: {execution_id}, triggered_by: {triggered_by_user_id or 'scheduled'})"
+        )
         result = _run_async(_execute())
         logger.info(
             f"Attendance sync completed: "
@@ -250,9 +269,10 @@ def sync_attendance_for_lines_task(
     Returns:
         dict with sync statistics
     """
+
     async def _execute():
         from api.services.attendance_sync_service import AttendanceSyncService
-        from db.maria_database import DatabaseSessionLocal, database_engine
+        from db.database import DatabaseSessionLocal, database_engine
         from db.hris_database import _get_hris_session_maker, dispose_hris_engine
 
         result_dict = None
@@ -283,7 +303,9 @@ def sync_attendance_for_lines_task(
             raise
         finally:
             # Dispose engines before event loop closes
-            logger.debug("Disposing database engines to prevent event loop cleanup warnings...")
+            logger.debug(
+                "Disposing database engines to prevent event loop cleanup warnings..."
+            )
             try:
                 await dispose_hris_engine()
                 logger.debug("HRIS engine disposed and globals reset")
@@ -300,10 +322,12 @@ def sync_attendance_for_lines_task(
 
     try:
         logger.info(
-            f"Starting targeted attendance sync for {len(meal_request_line_ids)} lines")
+            f"Starting targeted attendance sync for {len(meal_request_line_ids)} lines"
+        )
         result = _run_async(_execute())
         logger.info(
-            f"Targeted sync completed: {result['synced']}/{result['total']} synced")
+            f"Targeted sync completed: {result['synced']}/{result['total']} synced"
+        )
         return result
 
     except Exception as e:
@@ -336,14 +360,17 @@ def fetch_attendance_for_meal_request_task(
     Returns:
         dict with processing statistics and status
     """
+
     async def _execute():
         from datetime import date
         from api.repositories.hris_repository import HRISRepository
-        from api.repositories.meal_request_line_repository import MealRequestLineRepository
+        from api.repositories.meal_request_line_repository import (
+            MealRequestLineRepository,
+        )
         from api.repositories.meal_request_repository import MealRequestRepository
-        from db.maria_database import DatabaseSessionLocal, database_engine
+        from db.database import DatabaseSessionLocal, database_engine
         from db.hris_database import _get_hris_session_maker, dispose_hris_engine
-        from db.models import Employee
+        from db.model import Employee
         from sqlalchemy import select
 
         result_dict = None
@@ -356,10 +383,14 @@ def fetch_attendance_for_meal_request_task(
                     try:
                         # Get all lines for this meal request
                         line_repo = MealRequestLineRepository()
-                        lines = await line_repo.get_by_request(app_session, meal_request_id)
+                        lines = await line_repo.get_by_request(
+                            app_session, meal_request_id
+                        )
 
                         if not lines:
-                            logger.warning(f"No lines found for meal request {meal_request_id}")
+                            logger.warning(
+                                f"No lines found for meal request {meal_request_id}"
+                            )
                             result_dict = {
                                 "status": "completed",
                                 "total": 0,
@@ -376,8 +407,12 @@ def fetch_attendance_for_meal_request_task(
                             for line in lines:
                                 try:
                                     # Fetch employee
-                                    employee_stmt = select(Employee).where(Employee.id == line.employee_id)
-                                    employee_result = await app_session.execute(employee_stmt)
+                                    employee_stmt = select(Employee).where(
+                                        Employee.id == line.employee_id
+                                    )
+                                    employee_result = await app_session.execute(
+                                        employee_stmt
+                                    )
                                     employee = employee_result.scalar_one_or_none()
 
                                     if not employee:
@@ -389,10 +424,12 @@ def fetch_attendance_for_meal_request_task(
 
                                     # Fetch sign-in time from TMS_Attendance
                                     # employee.id is the HRIS employee ID (used as primary key)
-                                    sign_in_time = await hris_repo.get_today_sign_in_time(
-                                        session=hris_session,
-                                        employee_id=employee.id,
-                                        target_date=date.today(),
+                                    sign_in_time = (
+                                        await hris_repo.get_today_sign_in_time(
+                                            session=hris_session,
+                                            employee_id=employee.id,
+                                            target_date=date.today(),
+                                        )
                                     )
 
                                     # Update the line with attendance_time
@@ -400,7 +437,7 @@ def fetch_attendance_for_meal_request_task(
                                         await line_repo.update(
                                             app_session,
                                             line.id,
-                                            {"attendance_time": sign_in_time}
+                                            {"attendance_time": sign_in_time},
                                         )
                                         synced_count += 1
                                         logger.info(
@@ -422,7 +459,7 @@ def fetch_attendance_for_meal_request_task(
                             await request_repo.update(
                                 app_session,
                                 meal_request_id,
-                                {"status_id": 1}  # Pending status
+                                {"status_id": 1},  # Pending status
                             )
                             await app_session.commit()
 
@@ -441,15 +478,13 @@ def fetch_attendance_for_meal_request_task(
                     except Exception as e:
                         logger.error(
                             f"Error processing meal request {meal_request_id}: {e}",
-                            exc_info=True
+                            exc_info=True,
                         )
                         # Still try to update status to Pending even if there was an error
                         try:
                             request_repo = MealRequestRepository()
                             await request_repo.update(
-                                app_session,
-                                meal_request_id,
-                                {"status_id": 1}
+                                app_session, meal_request_id, {"status_id": 1}
                             )
                             await app_session.commit()
                         except Exception as status_err:
@@ -463,7 +498,9 @@ def fetch_attendance_for_meal_request_task(
             raise
         finally:
             # Dispose engines before event loop closes
-            logger.debug("Disposing database engines to prevent event loop cleanup warnings...")
+            logger.debug(
+                "Disposing database engines to prevent event loop cleanup warnings..."
+            )
             try:
                 await dispose_hris_engine()
                 logger.debug("HRIS engine disposed and globals reset")

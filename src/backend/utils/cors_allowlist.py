@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from fastapi import Request
 
-from settings import settings
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class CORSAllowlistService:
         Returns:
             List of allowed origins
         """
-        origins = settings.ALLOWED_ORIGINS or []
+        origins = settings.api.cors_origins or []
         return [origin.strip() for origin in origins if origin]
 
     @staticmethod
@@ -59,7 +59,7 @@ class CORSAllowlistService:
 
         # Priority 2: Default origins (if no origins configured)
         if not all_origins:
-            environment = settings.ENVIRONMENT.lower()
+            environment = settings.environment.lower()
             if environment == "local":
                 default_origins = CORSAllowlistService.DEFAULT_LOCAL_ORIGINS
             else:
@@ -88,7 +88,7 @@ class CORSAllowlistService:
             return True
 
         # Check default origins
-        environment = settings.ENVIRONMENT.lower()
+        environment = settings.environment.lower()
         if environment == "local":
             default_origins = CORSAllowlistService.DEFAULT_LOCAL_ORIGINS
         else:

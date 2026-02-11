@@ -12,7 +12,7 @@ from exchangelib import (
     Message,
 )
 
-from settings import settings
+from core.config import settings
 
 # Load environment variables from .env file
 load_dotenv()
@@ -46,8 +46,7 @@ class EmailSender:
         """
         if not setting_value:
             raise ValueError(
-                f"Setting or environment variable '{
-                             var_name}' is missing or empty."
+                f"Setting or environment variable '{var_name}' is missing or empty."
             )
         return setting_value
 
@@ -63,27 +62,26 @@ class EmailSender:
         """
         try:
             username = self.get_setting(
-                settings.SERVICE_ACCOUNT,
+                settings.ldap.service_account,
                 "SERVICE_ACCOUNT",
             )
             password = self.get_setting(
-                settings.SERVICE_PASSWORD,
+                settings.ldap.service_password,
                 "SERVICE_PASSWORD",
             )
             server = self.get_setting(
-                settings.SMTP_SERVER,
+                settings.email.smtp_server,
                 "SMTP_SERVER",
             )
             primary_smtp_address = self.get_setting(
-                settings.PRIMARY_SMTP_ADDRESS, "PRIMARY_SMTP_ADDRESS"
+                settings.email.primary_smtp_address, "PRIMARY_SMTP_ADDRESS"
             )
 
             credentials = Credentials(username=username, password=password)
             config = Configuration(server=server, credentials=credentials)
 
             logger.info(
-                f"Creating EWS account for '{
-                    primary_smtp_address}' on '{server}'."
+                f"Creating EWS account for '{primary_smtp_address}' on '{server}'."
             )
             return Account(
                 primary_smtp_address=primary_smtp_address,
@@ -125,10 +123,7 @@ class EmailSender:
                 body=HTMLBody(body),
                 to_recipients=[Mailbox(email_address=to_recipient)],
                 cc_recipients=(
-                    [
-                        Mailbox(email_address=recipient)
-                        for recipient in cc_recipients
-                    ]
+                    [Mailbox(email_address=recipient) for recipient in cc_recipients]
                     if cc_recipients
                     else None
                 ),

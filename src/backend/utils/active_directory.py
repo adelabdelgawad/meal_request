@@ -4,7 +4,7 @@ from typing import List, Optional
 from dotenv import load_dotenv
 from ldap3 import ALL, SIMPLE, SUBTREE, Connection, Server
 
-from settings import settings
+from core.config import settings
 from utils.app_schemas import DomainAccount
 
 # Load environment variables from the .env file
@@ -31,9 +31,9 @@ class LDAPAuthenticator:
         Returns:
             List of LDAP search base DNs
         """
-        allowed_ous = settings.get_ad_allowed_ous_list()
-        base_dn = settings.AD_BASE_DN
-        ou_template = settings.AD_OU_PATH_TEMPLATE
+        allowed_ous = settings.ldap.get_allowed_ous_list()
+        base_dn = settings.ldap.base_dn
+        ou_template = settings.ldap.ou_path_template
 
         if not allowed_ous:
             # Fallback to original behavior if no OUs configured
@@ -98,22 +98,42 @@ class LDAPAuthenticator:
                 for entry in connection.entries:
                     try:
                         # Extract manager CN from DN (e.g., "CN=John Doe,OU=..." -> "John Doe")
-                        manager_dn = entry.manager.value if hasattr(entry, 'manager') and entry.manager.value else None
+                        manager_dn = (
+                            entry.manager.value
+                            if hasattr(entry, "manager") and entry.manager.value
+                            else None
+                        )
                         manager_name = None
                         if manager_dn:
                             # Parse CN from DN
-                            cn_part = manager_dn.split(',')[0] if ',' in manager_dn else manager_dn
-                            if cn_part.upper().startswith('CN='):
+                            cn_part = (
+                                manager_dn.split(",")[0]
+                                if "," in manager_dn
+                                else manager_dn
+                            )
+                            if cn_part.upper().startswith("CN="):
                                 manager_name = cn_part[3:]
 
                         accounts.append(
                             DomainAccount(
                                 username=entry.sAMAccountName.value,
-                                email=entry.mail.value if hasattr(entry, 'mail') and entry.mail.value else None,
-                                fullName=entry.displayName.value if hasattr(entry, 'displayName') else None,
-                                title=entry.title.value if hasattr(entry, 'title') and entry.title.value else None,
-                                office=entry.physicalDeliveryOfficeName.value if hasattr(entry, 'physicalDeliveryOfficeName') and entry.physicalDeliveryOfficeName.value else None,
-                                phone=entry.telephoneNumber.value if hasattr(entry, 'telephoneNumber') and entry.telephoneNumber.value else None,
+                                email=entry.mail.value
+                                if hasattr(entry, "mail") and entry.mail.value
+                                else None,
+                                fullName=entry.displayName.value
+                                if hasattr(entry, "displayName")
+                                else None,
+                                title=entry.title.value
+                                if hasattr(entry, "title") and entry.title.value
+                                else None,
+                                office=entry.physicalDeliveryOfficeName.value
+                                if hasattr(entry, "physicalDeliveryOfficeName")
+                                and entry.physicalDeliveryOfficeName.value
+                                else None,
+                                phone=entry.telephoneNumber.value
+                                if hasattr(entry, "telephoneNumber")
+                                and entry.telephoneNumber.value
+                                else None,
                                 manager=manager_name,
                             )
                         )
@@ -160,9 +180,9 @@ class LDAPAuthenticator:
             if successful, otherwise None.
         """
         try:
-            DC = settings.AD_SERVER
-            USERNAME = settings.SERVICE_ACCOUNT
-            PASSWORD = settings.SERVICE_PASSWORD
+            DC = settings.ldap.server
+            USERNAME = settings.ldap.service_account
+            PASSWORD = settings.ldap.service_password
 
             if not DC or not USERNAME or not PASSWORD:
                 logger.error("AD connection settings not configured")

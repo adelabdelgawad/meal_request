@@ -11,17 +11,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import ConflictError, DatabaseError, NotFoundError
 from core.security import hash_password
-from db.models import User
+from db.model import User
+from .base import BaseRepository
 
 
-class UserRepository:
+class UserRepository(BaseRepository[User]):
     """Repository for User entity operations."""
 
-    def __init__(self):
-        """Initialize repository."""
-        pass
+    def __init__(self, session: AsyncSession):
+        """Initialize repository with session."""
+        super().__init__(session)
 
-    async def create(self, session: AsyncSession, user: User) -> User:
+    async def create(self, user: User) -> User:
         """
         Create a new user.
 
@@ -36,30 +37,20 @@ class UserRepository:
             DatabaseError: If database operation fails
         """
         try:
-            session.add(user)
-            await session.flush()
-            return user
+            return await super().create(user)
         except IntegrityError as e:
-            await session.rollback()
+            await self.session.rollback()
             error_msg = str(e.orig).lower()
 
             if "duplicate entry" in error_msg:
                 if "username" in error_msg:
-                    raise ConflictError(
-                        entity="User",
-                        field="username",
-                        value=user.username,
-                    )
+                    raise ConflictError(f"Username '{user.username}' already exists")
                 elif "email" in error_msg:
-                    raise ConflictError(
-                        entity="User",
-                        field="email",
-                        value=user.email,
-                    )
+                    raise ConflictError(f"Email '{user.email}' already exists")
 
             raise DatabaseError(f"Failed to create user: {str(e)}")
 
-    async def get_by_id(self, session: AsyncSession, user_id: UUID) -> Optional[User]:
+    async def get_by_id(self, user_id: UUID) -> Optional[User]:
         """
         Read a user by ID.
 
@@ -70,12 +61,10 @@ class UserRepository:
             User if found, None otherwise
         """
         # Convert UUID to string since User.id is CHAR(36) in database
-        result = await session.execute(
-            select(User).where(User.id == str(user_id))
-        )
+        result = await self.session.execute(select(User).where(User.id == str(user_id)))
         return result.scalar_one_or_none()
 
-    async def get_by_username(self, session: AsyncSession, username: str) -> Optional[User]:
+    async def get_by_username(self, username: str) -> Optional[User]:
         """
         Read a user by username.
 
@@ -85,12 +74,12 @@ class UserRepository:
         Returns:
             User if found, None otherwise
         """
-        result = await session.execute(
+        result = await self.session.execute(
             select(User).where(User.username == username)
         )
         return result.scalar_one_or_none()
 
-    async def get_by_email(self, session: AsyncSession, email: str) -> Optional[User]:
+    async def get_by_email(self, email: str) -> Optional[User]:
         """
         Read a user by email.
 
@@ -100,14 +89,11 @@ class UserRepository:
         Returns:
             User if found, None otherwise
         """
-        result = await session.execute(
-            select(User).where(User.email == email)
-        )
+        result = await self.session.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
     async def list(
         self,
-        session: AsyncSession,
         page: int = 1,
         per_page: int = 25,
         is_active: Optional[bool] = None,
@@ -129,7 +115,7 @@ class UserRepository:
         """
         from core.pagination import calculate_offset
         from sqlalchemy import func
-        from db.models import RolePermission
+        from db.model import RolePermission
 
         # Build base query with filters
         query = select(User)
@@ -153,27 +139,29 @@ class UserRepository:
         if role_id:
             # Join with RolePermission to filter by role
             # Use DISTINCT to prevent duplicate users if multiple role permissions exist
-            query = query.join(RolePermission, User.id == RolePermission.user_id).where(
-                RolePermission.role_id == role_id
-            ).distinct()
-            count_query = count_query.join(RolePermission, User.id == RolePermission.user_id).where(
-                RolePermission.role_id == role_id
-            ).distinct()
+            query = (
+                query.join(RolePermission, User.id == RolePermission.user_id)
+                .where(RolePermission.role_id == role_id)
+                .distinct()
+            )
+            count_query = (
+                count_query.join(RolePermission, User.id == RolePermission.user_id)
+                .where(RolePermission.role_id == role_id)
+                .distinct()
+            )
 
         # Get total count
-        count_result = await session.execute(count_query)
+        count_result = await self.session.execute(count_query)
         total = count_result.scalar() or 0
 
         # Get paginated results
         offset = calculate_offset(page, per_page)
-        result = await session.execute(
-            query.offset(offset).limit(per_page)
-        )
+        result = await self.session.execute(query.offset(offset).limit(per_page))
         users = result.scalars().all()
 
-        return users, total
+        return list(users), total
 
-    async def update(self, session: AsyncSession, user_id: UUID, user_data: dict) -> User:
+    async def update(self, user_id: UUID, user_data: dict) -> User:
         """
         Update an existing user.
 
@@ -189,22 +177,22 @@ class UserRepository:
             ConflictError: If unique constraint violated
             DatabaseError: If database operation fails
         """
-        user = await self.get_by_id(session, user_id)
+        user = await self.get_by_id(user_id)
         if not user:
-            raise NotFoundError(entity="User", identifier=user_id)
+            raise NotFoundError(f"User with ID {user_id} not found")
 
         try:
             for key, value in user_data.items():
                 if value is not None and hasattr(user, key):
                     setattr(user, key, value)
 
-            await session.flush()
+            await self.session.flush()
             return user
         except IntegrityError as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to update user: {str(e)}")
 
-    async def delete(self, session: AsyncSession, user_id: UUID) -> None:
+    async def delete(self, user_id: UUID) -> None:
         """
         Soft delete a user (mark as inactive).
 
@@ -214,21 +202,18 @@ class UserRepository:
         Raises:
             NotFoundError: If user not found
         """
-        user = await self.get_by_id(session, user_id)
+        user = await self.get_by_id(user_id)
         if not user:
-            raise NotFoundError(entity="User", identifier=user_id)
+            raise NotFoundError(f"User with ID {user_id} not found")
 
         user.is_active = False
-        await session.flush()
+        await self.session.flush()
 
-    async def update_preferred_locale(
-        self, session: AsyncSession, user_id: str, locale: str
-    ) -> User:
+    async def update_preferred_locale(self, user_id: str, locale: str) -> User:
         """
         Update user's preferred locale.
 
         Args:
-            session: Database session
             user_id: User ID (UUID as string)
             locale: Locale code (2-letter, e.g., 'en', 'ar')
 
@@ -239,81 +224,83 @@ class UserRepository:
             NotFoundError: If user not found
             DatabaseError: If database operation fails
         """
-        from settings import settings
+        from core.config import settings
 
         # Validate locale
-        if locale not in settings.SUPPORTED_LOCALES:
+        if locale not in settings.locale.supported_locales:
             raise DatabaseError(
-                f"Invalid locale '{locale}'. Supported locales: {', '.join(settings.SUPPORTED_LOCALES)}"
+                f"Invalid locale '{locale}'. Supported locales: {', '.join(settings.locale.supported_locales)}"
             )
 
         # Get user
-        result = await session.execute(
-            select(User).where(User.id == user_id)
-        )
+        result = await self.session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
 
         if not user:
-            raise NotFoundError(entity="User", identifier=user_id)
+            raise NotFoundError(f"User with ID {user_id} not found")
 
         # Update preferred locale
         user.preferred_locale = locale
-        await session.flush()
+        await self.session.flush()
         return user
 
     # CRUD compatibility methods (for backward compatibility during migration)
-    async def read_account(self, session: AsyncSession, username: Optional[str] = None, account_id: Optional[int] = None) -> Optional[User]:
+    async def read_account(
+        self,
+        username: Optional[str] = None,
+        account_id: Optional[int] = None,
+    ) -> Optional[User]:
         """
         Compatibility wrapper for CRUD read_account function.
         Reads a user by username or ID.
         """
         if username:
-            return await self.get_by_username(session, username)
+            return await self.get_by_username(username)
         elif account_id:
-            return await self.get_by_id(session, UUID(int=account_id) if isinstance(account_id, int) else account_id)
+            return await self.get_by_id(
+                UUID(int=account_id) if isinstance(account_id, int) else account_id
+            )
         return None
 
-    async def create_account(self, session: AsyncSession, user_create) -> User:
+    async def create_account(self, user_create) -> User:
         """
         Compatibility wrapper for CRUD create_account function.
         Creates or updates a user by username.
         Automatically hashes password if provided.
         """
-
         # Check if user already exists
-        existing = await self.get_by_username(session, user_create.username)
+        existing = await self.get_by_username(user_create.username)
         if existing:
             # Update existing user
             user_data = user_create.model_dump(exclude_unset=True)
             # Hash password if provided and it's not already a hash
-            if 'password' in user_data and user_data['password']:
+            if "password" in user_data and user_data["password"]:
                 # Only hash if it doesn't look like a bcrypt hash (bcrypt hashes start with $2b$)
-                if not user_data['password'].startswith('$2b$'):
-                    user_data['password'] = hash_password(user_data['password'])
+                if not user_data["password"].startswith("$2b$"):
+                    user_data["password"] = hash_password(user_data["password"])
 
             for key, value in user_data.items():
                 if hasattr(existing, key) and value is not None:
                     setattr(existing, key, value)
-            await session.flush()
+            await self.session.flush()
             return existing
 
         # Create new user
         user_data = user_create.model_dump()
         # Hash password if provided and not already hashed
-        if 'password' in user_data and user_data['password']:
-            if not user_data['password'].startswith('$2b$'):
-                user_data['password'] = hash_password(user_data['password'])
+        if "password" in user_data and user_data["password"]:
+            if not user_data["password"].startswith("$2b$"):
+                user_data["password"] = hash_password(user_data["password"])
 
         user = User(**user_data)
-        return await self.create(session, user)
+        return await self.create(user)
 
     # Bulk Operations
-    async def bulk_create(self, session: AsyncSession, users: List[User]) -> List[User]:
+    async def bulk_create(self, users: List[User]) -> List[User]:
         """
         Create multiple users in a single operation.
 
         Args:
-            session: Database session
             users: List of User instances to create
 
         Returns:
@@ -324,23 +311,21 @@ class UserRepository:
             DatabaseError: If database operation fails
         """
         try:
-            session.add_all(users)
-            await session.flush()
+            for user in users:
+                self.session.add(user)
+            await self.session.flush()
+            for user in users:
+                await self.session.refresh(user)
             return users
         except IntegrityError as e:
-            await session.rollback()
+            await self.session.rollback()
             error_msg = str(e.orig).lower()
             if "duplicate entry" in error_msg:
-                raise ConflictError(
-                    entity="User",
-                    field="username or email",
-                    value="(bulk operation)",
-                )
+                raise ConflictError(f"Duplicate username or email in bulk operation")
             raise DatabaseError(f"Failed to bulk create users: {str(e)}")
 
     async def bulk_update_status(
         self,
-        session: AsyncSession,
         user_ids: List[UUID],
         is_active: bool,
     ) -> int:
@@ -348,7 +333,6 @@ class UserRepository:
         Update active status for multiple users in a single operation.
 
         Args:
-            session: Database session
             user_ids: List of user IDs to update
             is_active: New active status
 
@@ -366,19 +350,18 @@ class UserRepository:
                 .where(User.id.in_([str(uid) for uid in user_ids]))
                 .values(is_active=is_active)
             )
-            result = await session.execute(stmt)
-            await session.flush()
+            result = await self.session.execute(stmt)
+            await self.session.flush()
             return result.rowcount
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to bulk update user status: {str(e)}")
 
-    async def bulk_delete(self, session: AsyncSession, user_ids: List[UUID]) -> int:
+    async def bulk_delete(self, user_ids: List[UUID]) -> int:
         """
         Soft delete multiple users in a single operation.
 
         Args:
-            session: Database session
             user_ids: List of user IDs to delete
 
         Returns:
@@ -395,9 +378,9 @@ class UserRepository:
                 .where(User.id.in_([str(uid) for uid in user_ids]))
                 .values(is_active=False)
             )
-            result = await session.execute(stmt)
-            await session.flush()
+            result = await self.session.execute(stmt)
+            await self.session.flush()
             return result.rowcount
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to bulk delete users: {str(e)}")

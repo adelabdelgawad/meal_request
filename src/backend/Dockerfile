@@ -31,9 +31,7 @@ RUN apk add --no-cache \
     # LDAP support (ldap3)
     openldap-dev \
     cyrus-sasl-dev \
-    # MySQL/MariaDB support (aiomysql, pymysql)
-    mariadb-dev \
-    mariadb-connector-c \
+
     # ODBC support (pyodbc for SQL Server)
     unixodbc-dev \
     freetds-dev \
@@ -91,7 +89,6 @@ RUN apk add --no-cache \
     openssl \
     libldap \
     libsasl \
-    mariadb-connector-c \
     unixodbc \
     freetds \
     libxml2 \
@@ -141,18 +138,18 @@ EXPOSE 8000
 # Timeout: 300s for long-running requests
 # Bind: 0.0.0.0:8000 for container networking
 # Logs: stdout/stderr for container log aggregation
-CMD ["gunicorn", "app:app", \
-     "--workers", "4", \
-     "--worker-class", "uvicorn.workers.UvicornWorker", \
-     "--bind", "0.0.0.0:8000", \
-     "--timeout", "300", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-", \
-     "--log-level", "info", \
-     "--graceful-timeout", "30"]
+CMD ["gunicorn", "main:app", \
+      "--workers", "4", \
+      "--worker-class", "uvicorn.workers.UvicornWorker", \
+      "--bind", "0.0.0.0:8000", \
+      "--timeout", "300", \
+      "--access-logfile", "-", \
+      "--error-logfile", "-", \
+      "--log-level", "info", \
+      "--graceful-timeout", "30"]
 
 # Alternative CMD for simpler deployments (uncomment if preferred):
-# CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
 
 # Metadata labels
 LABEL maintainer="meal-request-team" \

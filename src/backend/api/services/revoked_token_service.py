@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.repositories.revoked_token_repository import RevokedTokenRepository
 from core.security import create_jwt
-from db.models import RevokedToken
-from settings import settings
+from db.model import RevokedToken
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class RevokedTokenService:
     """Service for token revocation and JWT management."""
 
     def __init__(self):
-        self._repo = RevokedTokenRepository()
+        self._repo = RevokedTokenRepository(self.session)
 
     async def revoke_token(
         self,
@@ -62,9 +62,7 @@ class RevokedTokenService:
 
         return result
 
-    async def _cache_revoked_token(
-        self, jti: str, expires_at: datetime = None
-    ) -> None:
+    async def _cache_revoked_token(self, jti: str, expires_at: datetime = None) -> None:
         """
         Cache a revoked token JTI in Redis.
 
@@ -87,9 +85,11 @@ class RevokedTokenService:
                 expires_at = pytz.timezone("Africa/Cairo").localize(expires_at)
             remaining_seconds = int((expires_at - now).total_seconds())
             # Use remaining time or configured TTL, whichever is smaller
-            ttl = max(1, min(remaining_seconds, settings.REDIS_REVOKED_TOKEN_TTL_SECONDS))
+            ttl = max(
+                1, min(remaining_seconds, settings.redis.revoked_token_ttl_seconds)
+            )
         else:
-            ttl = settings.REDIS_REVOKED_TOKEN_TTL_SECONDS
+            ttl = settings.redis.revoked_token_ttl_seconds
 
         cache_key = RedisKeys.revoked_token(jti)
         cached = await cache_set(cache_key, "1", ttl)

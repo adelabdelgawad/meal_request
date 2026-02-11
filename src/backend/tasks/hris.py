@@ -86,7 +86,7 @@ def hris_replication_task(self, execution_id: str = None, triggered_by_user_id: 
     """
     async def _execute():
         from api.repositories.scheduler_repository import SchedulerRepository
-        from db.maria_database import DatabaseSessionLocal, database_engine
+        from db.database import DatabaseSessionLocal, database_engine
         from db.hris_database import _get_hris_session_maker, dispose_hris_engine
         from utils.replicate_hris import replicate
 

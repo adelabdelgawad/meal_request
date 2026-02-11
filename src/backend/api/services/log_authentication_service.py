@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.repositories.log_authentication_repository import LogAuthenticationRepository
 from api.schemas.log_authentication_schemas import LogAuthenticationCreate
-from db.models import LogAuthentication
+from db.model import LogAuthentication
 
 logger = logging.getLogger(__name__)
 
@@ -16,13 +16,13 @@ logger = logging.getLogger(__name__)
 class LogAuthenticationService:
     """Service for authentication audit log management operations."""
 
-    def __init__(self):
+    def __init__(self, session: AsyncSession):
         """Initialize service."""
-        self.repository = LogAuthenticationRepository()
+        self.session = session
+        self.repository = LogAuthenticationRepository(session)
 
     async def log_authentication(
         self,
-        session: AsyncSession,
         user_id: Optional[str],
         action: str,
         is_successful: bool,
@@ -32,13 +32,12 @@ class LogAuthenticationService:
         result: Optional[dict] = None,
     ) -> None:
         """
-        Log an authentication event. Non-blocking - errors are logged but don't fail the operation.
+        Log an authentication event. Non-blocking - errors are logged but don't fail operation.
 
         Args:
-            session: Database session
             user_id: User ID (UUID as string, None for failed logins)
             action: Action type (login_success, login_failed, token_refresh, logout)
-            is_successful: Whether the action was successful
+            is_successful: Whether action was successful
             ip_address: Client IP address
             user_agent: User agent string
             device_fingerprint: Hashed device fingerprint
@@ -55,12 +54,16 @@ class LogAuthenticationService:
                 result=json.dumps(result) if result else None,
             )
             await self.repository.create(session, log_data)
-            logger.debug(f"Logged authentication event: action={action}, user_id={user_id}, success={is_successful}")
+            logger.debug(
+                f"Logged authentication event: action={action}, user_id={user_id}, success={is_successful}"
+            )
         except Exception as e:
             # Log error but don't fail the operation
             logger.error(f"Failed to log authentication event: {e}", exc_info=True)
 
-    async def get_log(self, session: AsyncSession, log_id: str) -> Optional[LogAuthentication]:
+    async def get_log(
+        self, session: AsyncSession, log_id: str
+    ) -> Optional[LogAuthentication]:
         """
         Get an authentication log by ID.
 
@@ -88,7 +91,6 @@ class LogAuthenticationService:
         Query authentication logs with filters.
 
         Args:
-            session: Database session
             page: Page number (1-indexed)
             per_page: Items per page
             user_id: Filter by user ID
@@ -101,7 +103,6 @@ class LogAuthenticationService:
             Tuple of (list of logs, total count)
         """
         return await self.repository.query(
-            session,
             page=page,
             per_page=per_page,
             user_id=user_id,
@@ -112,17 +113,16 @@ class LogAuthenticationService:
         )
 
     async def get_recent_logs(
-        self, session: AsyncSession, user_id: Optional[str] = None, limit: int = 10
+        self, user_id: Optional[str] = None, limit: int = 10
     ) -> List[LogAuthentication]:
         """
         Get recent authentication logs for dashboard.
 
         Args:
-            session: Database session
             user_id: Optional user ID to filter by
             limit: Maximum number of logs to return
 
         Returns:
             List of recent LogAuthentication objects
         """
-        return await self.repository.get_recent(session, user_id=user_id, limit=limit)
+        return await self.repository.get_recent(user_id=user_id, limit=limit)

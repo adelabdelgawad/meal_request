@@ -15,7 +15,7 @@ from api.services import (
     DepartmentAssignmentService,
     LogReplicationService,
 )
-from db.models import SecurityUser, User, Employee
+from db.model import SecurityUser, User, Employee
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,7 @@ from api.repositories.log_configuration_repository import LogConfigurationReposi
 from api.schemas.log_configuration_schemas import (
     LogConfigurationQuery
 )
-from db.models import LogConfiguration
+from db.model import LogConfiguration
 
 logger = logging.getLogger(__name__)
 

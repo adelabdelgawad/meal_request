@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.services.scheduler_service import SchedulerService
 from api.repositories.scheduler_repository import SchedulerRepository
-from db.models import ScheduledJob, ScheduledJobExecution
+from db.model import ScheduledJob, ScheduledJobExecution
 from utils.structured_logger import set_correlation_id, clear_execution_context
 
 
@@ -64,7 +64,7 @@ def sample_job():
 @pytest.fixture
 def running_status():
     """Create mock running status."""
-    from db.models import SchedulerExecutionStatus
+    from db.model import SchedulerExecutionStatus
     status = SchedulerExecutionStatus(
         id=2,
         code="running",
@@ -76,7 +76,7 @@ def running_status():
 @pytest.fixture
 def success_status():
     """Create mock success status."""
-    from db.models import SchedulerExecutionStatus
+    from db.model import SchedulerExecutionStatus
     status = SchedulerExecutionStatus(
         id=3,
         code="success",
@@ -88,7 +88,7 @@ def success_status():
 @pytest.fixture
 def failed_status():
     """Create mock failed status."""
-    from db.models import SchedulerExecutionStatus
+    from db.model import SchedulerExecutionStatus
     status = SchedulerExecutionStatus(
         id=4,
         code="failed",

@@ -9,12 +9,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import get_session, parse_accept_language
+from db.database import get_maria_session as get_session
+from api.deps import parse_accept_language
 from api.schemas._base import CamelModel
 from api.services.navigation_service import NavigationService
 from core.sessions import verify_access_token, verify_refresh_token
-from db.models import User
-from settings import settings
+from db.model import User
+from core.config import settings
 from utils.icon_validation import get_icon_allowlist, get_icon_allowlist_version
 from utils.security import require_authenticated
 
@@ -25,6 +26,7 @@ router = APIRouter(prefix="/navigation", tags=["navigation"])
 
 class NavigationResponse(CamelModel):
     """Response model for navigation tree."""
+
     nodes: List[dict]
     locale: str
     nav_type: Optional[str]
@@ -32,14 +34,14 @@ class NavigationResponse(CamelModel):
 
 class IconAllowlistResponse(CamelModel):
     """Response model for icon allowlist."""
+
     icons: List[str]
     version: str
     count: int
 
 
 async def get_current_user_optional_for_nav(
-    request: Request,
-    session: AsyncSession = Depends(get_session)
+    request: Request, session: AsyncSession = Depends(get_session)
 ) -> tuple[Optional[str], bool]:
     """
     Get current user ID and super_admin status if authenticated.
@@ -99,7 +101,9 @@ async def get_current_user_optional_for_nav(
 @router.get("", response_model=NavigationResponse)
 async def get_navigation(
     request: Request,
-    nav_type: Optional[str] = Query(None, description="Filter by navigation type (e.g., 'primary', 'sidebar')"),
+    nav_type: Optional[str] = Query(
+        None, description="Filter by navigation type (e.g., 'primary', 'sidebar')"
+    ),
     lang: Optional[str] = Query(None, description="Override locale (e.g., 'en', 'ar')"),
     session: AsyncSession = Depends(get_session),
     payload: dict = Depends(require_authenticated),
@@ -120,7 +124,7 @@ async def get_navigation(
         1. lang query parameter (for testing/override)
         2. JWT refresh token payload (authenticated users, zero DB queries)
         3. Accept-Language header
-        4. Default locale (settings.DEFAULT_LOCALE)
+        4. Default locale (settings.locale.default_locale)
 
     Query Parameters:
         - nav_type: Filter by navigation type (optional)
@@ -137,37 +141,43 @@ async def get_navigation(
     """
     try:
         # Determine locale (zero DB queries!)
-        locale = settings.DEFAULT_LOCALE
+        locale = settings.locale.default_locale
 
         # Priority 1: Query parameter override
-        if lang and lang.lower() in settings.SUPPORTED_LOCALES:
+        if lang and lang.lower() in settings.locale.supported_locales:
             locale = lang.lower()
             logger.debug(f"[get_navigation] Using locale from query param: {locale}")
         else:
             # Priority 2: Try JWT payload (no DB query!)
             try:
-                refresh_token = request.cookies.get(settings.SESSION_COOKIE_NAME)
+                refresh_token = request.cookies.get(settings.session.cookie_name)
                 if refresh_token:
                     payload = verify_refresh_token(refresh_token)
                     if payload and "locale" in payload:
                         locale = payload["locale"]
-                        logger.debug(f"[get_navigation] Using locale from JWT: {locale}")
+                        logger.debug(
+                            f"[get_navigation] Using locale from JWT: {locale}"
+                        )
             except Exception as e:
                 logger.debug(f"[get_navigation] Failed to get locale from JWT: {e}")
 
             # Priority 3: Accept-Language header
-            if locale == settings.DEFAULT_LOCALE:
+            if locale == settings.locale.default_locale:
                 accept_language = request.headers.get("accept-language")
                 if accept_language:
                     languages = parse_accept_language(accept_language)
                     for lang_code, _ in languages:
-                        if lang_code in settings.SUPPORTED_LOCALES:
+                        if lang_code in settings.locale.supported_locales:
                             locale = lang_code
-                            logger.debug(f"[get_navigation] Using locale from Accept-Language: {locale}")
+                            logger.debug(
+                                f"[get_navigation] Using locale from Accept-Language: {locale}"
+                            )
                             break
 
         # Get user context (optional, for permission filtering)
-        user_id, is_super_admin = await get_current_user_optional_for_nav(request, session)
+        user_id, is_super_admin = await get_current_user_optional_for_nav(
+            request, session
+        )
 
         # Build navigation tree
         nav_service = NavigationService()

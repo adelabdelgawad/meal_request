@@ -8,7 +8,7 @@ from api.repositories.log_meal_request_line_repository import (
     LogMealRequestLineRepository,
 )
 from core.exceptions import NotFoundError
-from db.models import LogMealRequestLine
+from db.model import LogMealRequestLine
 
 
 class LogMealRequestLineService:
@@ -16,7 +16,7 @@ class LogMealRequestLineService:
 
     def __init__(self):
         """Initialize service."""
-        self._repo = LogMealRequestLineRepository()
+        self._repo = LogMealRequestLineRepository(self.session)
 
     async def log_meal_request_action(
         self,

@@ -15,7 +15,7 @@ from api.repositories.meal_request_repository import MealRequestRepository
 from api.repositories.meal_request_status_repository import MealRequestStatusRepository
 from api.repositories.meal_type_repository import MealTypeRepository
 from core.exceptions import AuthorizationError, NotFoundError, ValidationError
-from db.models import Employee, MealRequest, MealRequestLine
+from db.model import Employee, MealRequest, MealRequestLine
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +24,11 @@ class MealRequestService:
     """Service for meal request management."""
 
     def __init__(self):
-        self._request_repo = MealRequestRepository()
-        self._line_repo = MealRequestLineRepository()
-        self._status_repo = MealRequestStatusRepository()
-        self._meal_type_repo = MealTypeRepository()
-        self._hris_repo = HRISRepository()
+        self._request_repo = MealRequestRepository(self.session)
+        self._line_repo = MealRequestLineRepository(self.session)
+        self._status_repo = MealRequestStatusRepository(self.session)
+        self._meal_type_repo = MealTypeRepository(self.session)
+        self._hris_repo = HRISRepository(self.session)
 
     async def create_request(
         self,

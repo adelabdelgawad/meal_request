@@ -7,36 +7,36 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import DatabaseError, NotFoundError
-from db.models import DomainUser
+from db.model import DomainUser
+from .base import BaseRepository
 
 
-class DomainUserRepository:
+class DomainUserRepository(BaseRepository[DomainUser]):
     """Repository for DomainUser entity."""
 
-    def __init__(self):
-        pass
+        super().__init__(session)
 
-    async def create(self, session: AsyncSession, domain_user: DomainUser) -> DomainUser:
+    async def create(self, domain_user: DomainUser) -> DomainUser:
         """Create a new domain user."""
         try:
-            session.add(domain_user)
-            await session.flush()
-            await session.refresh(domain_user)
+            self.session.add(domain_user)
+            await self.session.flush()
+            await self.session.refresh(domain_user)
             return domain_user
         except IntegrityError as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to create domain user: {str(e)}")
 
-    async def get_by_id(self, session: AsyncSession, user_id: int) -> Optional[DomainUser]:
+    async def get_by_id(self, user_id: int) -> Optional[DomainUser]:
         """Get domain user by ID."""
-        result = await session.execute(
+        result = await self.session.execute(
             select(DomainUser).where(DomainUser.id == user_id)
         )
         return result.scalar_one_or_none()
 
-    async def get_by_username(self, session: AsyncSession, username: str) -> Optional[DomainUser]:
+    async def get_by_username(self, username: str) -> Optional[DomainUser]:
         """Get domain user by username."""
-        result = await session.execute(
+        result = await self.session.execute(
             select(DomainUser).where(DomainUser.username == username)
         )
         return result.scalar_one_or_none()
@@ -78,7 +78,7 @@ class DomainUserRepository:
 
         count_query = select(func.count()).select_from((count_query).subquery())
 
-        count_result = await session.execute(count_query)
+        count_result = await self.session.execute(count_query)
 
         total = count_result.scalar() or 0
 
@@ -86,8 +86,8 @@ class DomainUserRepository:
         offset = calculate_offset(page, per_page)
         query = query.offset(offset).limit(per_page)
 
-        result = await session.execute(query)
-        return result.scalars().all(), total
+        result = await self.session.execute(query)
+        return list(result.scalars().all()), total
 
     async def update(
         self,
@@ -96,20 +96,20 @@ class DomainUserRepository:
         user_data: dict,
     ) -> DomainUser:
         """Update a domain user."""
-        domain_user = await self.get_by_id(session, user_id)
+        domain_user = await self.get_by_id(user_id)
         if not domain_user:
-            raise NotFoundError(entity="DomainUser", identifier=str(user_id))
+            raise NotFoundError(f"DomainUser with ID str(user_id not found"))
 
         try:
             for key, value in user_data.items():
                 if value is not None and hasattr(domain_user, key):
                     setattr(domain_user, key, value)
 
-            await session.flush()
-            await session.refresh(domain_user)
+            await self.session.flush()
+            await self.session.refresh(domain_user)
             return domain_user
         except IntegrityError as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to update domain user: {str(e)}")
 
     async def upsert(
@@ -133,14 +133,14 @@ class DomainUserRepository:
             domain_user = DomainUser(username=username, **user_data)
             return await self.create(session, domain_user)
 
-    async def delete(self, session: AsyncSession, user_id: int) -> None:
+    async def delete(self, user_id: int) -> None:
         """Delete a domain user."""
-        domain_user = await self.get_by_id(session, user_id)
+        domain_user = await self.get_by_id(user_id)
         if not domain_user:
-            raise NotFoundError(entity="DomainUser", identifier=str(user_id))
+            raise NotFoundError(f"DomainUser with ID str(user_id not found"))
 
-        await session.delete(domain_user)
-        await session.flush()
+        await self.session.delete(domain_user)
+        await self.session.flush()
 
     async def bulk_upsert(
         self,
@@ -159,7 +159,7 @@ class DomainUserRepository:
             results.append(result)
         return results
 
-    async def delete_all(self, session: AsyncSession) -> int:
+    async def delete_all(self) -> int:
         """
         Delete all domain users from the table.
 
@@ -167,11 +167,11 @@ class DomainUserRepository:
             Number of deleted records
         """
         try:
-            result = await session.execute(delete(DomainUser))
-            await session.flush()
+            result = await self.session.execute(delete(DomainUser))
+            await self.session.flush()
             return result.rowcount
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to delete all domain users: {str(e)}")
 
     async def bulk_create(
@@ -193,10 +193,10 @@ class DomainUserRepository:
             count = 0
             for user_data in users_data:
                 domain_user = DomainUser(**user_data)
-                session.add(domain_user)
+                self.session.add(domain_user)
                 count += 1
-            await session.flush()
+            await self.session.flush()
             return count
         except IntegrityError as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to bulk create domain users: {str(e)}")

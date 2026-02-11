@@ -6,32 +6,32 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import DatabaseError, NotFoundError
-from db.models import Email, EmailRole
+from db.model import Email, EmailRole
+from .base import BaseRepository
 
 
-class EmailRepository:
+class EmailRepository(BaseRepository[Email]):
     """Repository for Email entity."""
 
-    def __init__(self):
-        pass
+        super().__init__(session)
 
-    async def create(self, session: AsyncSession, email: Email) -> Email:
+    async def create(self, email: Email) -> Email:
         try:
-            session.add(email)
-            await session.flush()
+            self.session.add(email)
+            await self.session.flush()
             return email
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to create email: {str(e)}")
 
-    async def get_by_id(self, session: AsyncSession, email_id: int) -> Optional[Email]:
-        result = await session.execute(
+    async def get_by_id(self, email_id: int) -> Optional[Email]:
+        result = await self.session.execute(
             select(Email).where(Email.id == email_id)
         )
         return result.scalar_one_or_none()
 
-    async def get_by_address(self, session: AsyncSession, address: str) -> Optional[Email]:
-        result = await session.execute(
+    async def get_by_address(self, address: str) -> Optional[Email]:
+        result = await self.session.execute(
             select(Email).where(Email.address == address)
         )
         return result.scalar_one_or_none()
@@ -56,46 +56,46 @@ class EmailRepository:
         count_query = select(func.count()).select_from((query).subquery())
 
 
-        count_result = await session.execute(count_query)
+        count_result = await self.session.execute(count_query)
 
 
         total = count_result.scalar() or 0
 
         offset = calculate_offset(page, per_page)
-        result = await session.execute(query.offset(offset).limit(per_page))
-        return result.scalars().all(), total
+        result = await self.session.execute(query.offset(offset).limit(per_page))
+        return list(result.scalars().all()), total
 
-    async def update(self, session: AsyncSession, email_id: int, email_data: dict) -> Email:
-        email = await self.get_by_id(session, email_id)
+    async def update(self, email_id: int, email_data: dict) -> Email:
+        email = await self.get_by_id(email_id)
         if not email:
-            raise NotFoundError(entity="Email", identifier=email_id)
+            raise NotFoundError(f"Email with ID {email_id} not found")
 
         try:
             for key, value in email_data.items():
                 if value is not None and hasattr(email, key):
                     setattr(email, key, value)
 
-            await session.flush()
+            await self.session.flush()
             return email
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to update email: {str(e)}")
 
-    async def delete(self, session: AsyncSession, email_id: int) -> None:
-        email = await self.get_by_id(session, email_id)
+    async def delete(self, email_id: int) -> None:
+        email = await self.get_by_id(email_id)
         if not email:
-            raise NotFoundError(entity="Email", identifier=email_id)
+            raise NotFoundError(f"Email with ID {email_id} not found")
 
-        await session.delete(email)
-        await session.flush()
+        await self.session.delete(email)
+        await self.session.flush()
 
     # Specialized CRUD compatibility methods
-    async def create_role(self, session: AsyncSession, email_role: EmailRole) -> EmailRole:
+    async def create_role(self, email_role: EmailRole) -> EmailRole:
         """Create an email role."""
         try:
-            session.add(email_role)
-            await session.flush()
+            self.session.add(email_role)
+            await self.session.flush()
             return email_role
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to create email role: {str(e)}")

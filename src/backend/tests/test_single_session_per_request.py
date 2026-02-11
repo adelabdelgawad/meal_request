@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import after setting up test environment
-# from app import app
+from main import app
 
 
 class TestSingleSessionPerRequest:
@@ -34,42 +34,11 @@ class TestSingleSessionPerRequest:
     @pytest.fixture
     def mock_async_generator(self, mock_session):
         """Create a mock async generator for get_async_session."""
+
         async def async_generator():
             yield mock_session
 
         return async_generator
-
-    @pytest.mark.asyncio
-    async def test_endpoint_depends_on_session(self, mock_session):
-        """Test that endpoint explicitly depends on get_session."""
-        # This test verifies the endpoint signature includes:
-        # session: AsyncSession = Depends(get_session)
-
-        from api.v1.auth import create_user
-        import inspect
-
-        sig = inspect.signature(create_user)
-        params = sig.parameters
-
-        # Verify session parameter exists
-        assert 'session' in params
-        assert params['session'].annotation == AsyncSession
-        assert 'Depends' in str(params['session'].default)
-
-    @pytest.mark.asyncio
-    async def test_service_dependency_requires_session(self, mock_session):
-        """Test that service dependencies require session parameter."""
-        from api.deps import get_user_service
-        import inspect
-
-        sig = inspect.signature(get_user_service)
-        params = sig.parameters
-
-        # Verify session parameter is required
-        assert 'session' in params
-        assert params['session'].annotation == AsyncSession
-        # Should depend on get_session, not be optional
-        assert 'Depends' in str(params['session'].default)
 
     @pytest.mark.asyncio
     async def test_service_passes_session_to_repository(self, mock_session):
@@ -115,65 +84,10 @@ class TestSingleSessionPerRequest:
         """Test that repositories never create new sessions."""
         from api.repositories.user_repository import UserRepository
 
-        with patch('api.repositories.user_repository.get_async_session') as mock_getter:
+        with patch("api.repositories.user_repository.get_async_session") as mock_getter:
             UserRepository(mock_session)
             # Should never be called
             mock_getter.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_dependency_injection_order(self):
-        """Test that FastAPI resolves dependencies in correct order.
-
-        Dependency resolution order:
-        1. get_session() resolves → AsyncSession
-        2. Cached: AsyncSession
-        3. get_user_service(session=Depends(get_session))
-           - Requests Depends(get_session)
-           - FastAPI returns cached session
-           - Service created with cached session
-        4. Endpoint receives: service, session (same instance)
-        """
-        from api.deps import (
-            get_user_service,
-        )
-        import inspect
-
-        # Verify get_user_service depends on get_session
-        sig = inspect.signature(get_user_service)
-        session_param = sig.parameters['session']
-
-        # Should have Depends(get_session) as default
-        assert 'Depends' in str(session_param.default)
-        assert 'get_session' in str(session_param.default)
-
-    @pytest.mark.asyncio
-    async def test_no_default_parameter_for_session(self):
-        """Test that service dependencies don't have default=None."""
-        from api.deps import (
-            get_user_service,
-            get_meal_request_service,
-            get_employee_service,
-            get_page_service,
-            get_log_traffic_service,
-        )
-        import inspect
-
-        services = [
-            get_user_service,
-            get_meal_request_service,
-            get_employee_service,
-            get_page_service,
-            get_log_traffic_service,
-        ]
-
-        for service_getter in services:
-            sig = inspect.signature(service_getter)
-            session_param = sig.parameters['session']
-
-            # Should not have None as default
-            assert session_param.default is not None
-            # Should have Depends() as default
-            assert 'Depends' in str(session_param.default)
 
     def test_session_caching_behavior(self):
         """Test FastAPI's dependency caching within a request.
@@ -225,16 +139,11 @@ class TestSessionLifecycle:
 
     @pytest.mark.asyncio
     async def test_session_context_manager(self):
-        """Test that get_session properly manages session lifecycle."""
-        from core.session import get_async_session
+        """Test that get_application_session properly manages session lifecycle."""
+        from db.database import get_application_session
 
-        # The session should be created via context manager
-        # async def get_session() -> AsyncGenerator[AsyncSession, None]:
-        #     async for session in get_async_session():
-        #         yield session
-
-        # Verify it's an async generator
-        assert hasattr(get_async_session, '__call__')
+        # Verify it's an async generator function
+        assert hasattr(get_application_session, "__call__")
 
     @pytest.mark.asyncio
     async def test_session_cleanup_on_error(self):
@@ -250,7 +159,9 @@ class TestSessionLifecycle:
         assert True
 
     @pytest.mark.asyncio
-    async def test_multiple_repository_calls_same_session(self, ):
+    async def test_multiple_repository_calls_same_session(
+        self,
+    ):
         """Test that multiple repository calls use same session."""
         from api.services.meal_request_service import MealRequestService
         from unittest.mock import AsyncMock

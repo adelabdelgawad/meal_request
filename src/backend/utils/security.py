@@ -21,8 +21,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.maria_database import get_maria_session
-from settings import settings
+from db.database import get_maria_session
+from core.config import settings
 from utils.observability import record_auth_failure
 
 logger = logging.getLogger(__name__)
@@ -69,14 +69,14 @@ def _create_limiter() -> Limiter:
     Returns:
         Limiter: Configured SlowAPI limiter instance
     """
-    if settings.REDIS_ENABLED and settings.REDIS_URL:
+    if settings.redis.enabled and settings.redis.url:
         logger.info(
             "Initializing rate limiter with Redis storage",
-            extra={"redis_url_masked": _mask_url(settings.REDIS_URL)},
+            extra={"redis_url_masked": _mask_url(settings.redis.url)},
         )
         return Limiter(
             key_func=_get_client_ip,
-            storage_uri=settings.REDIS_URL,
+            storage_uri=settings.redis.url,
             # Use async Redis for FastAPI compatibility
             strategy="fixed-window",
         )
@@ -91,6 +91,7 @@ def _create_limiter() -> Limiter:
 def _mask_url(url: str) -> str:
     """Mask password in URL for logging."""
     import re
+
     return re.sub(r"(://[^:]+:)[^@]+(@)", r"\1****\2", url)
 
 
@@ -101,8 +102,8 @@ limiter = _create_limiter()
 security = HTTPBearer(auto_error=False)
 
 # JWT configuration from settings
-SECRET_KEY = settings.JWT_SECRET_KEY
-ALGORITHM = settings.JWT_ALGORITHM
+SECRET_KEY = settings.sec.jwt_secret_key
+ALGORITHM = settings.sec.jwt_algorithm
 
 if not SECRET_KEY:
     logger.warning(
@@ -200,7 +201,7 @@ async def verify_jwt_token(
         token = credentials.credentials
     # Priority 2: Check session cookie (refresh token)
     else:
-        token = request.cookies.get(settings.SESSION_COOKIE_NAME)
+        token = request.cookies.get(settings.session.cookie_name)
 
     if not token:
         raise HTTPException(
@@ -273,11 +274,11 @@ async def _check_token_revoked_with_cache(session: AsyncSession, jti: str) -> bo
     is_revoked = await revoked_token_service.is_token_revoked(session, jti)
 
     # If revoked, cache it for future lookups
-    if is_revoked and is_redis_available():
-        cache_key = RedisKeys.revoked_token(jti)
-        # TTL matches access token lifetime to auto-cleanup
-        ttl = settings.REDIS_REVOKED_TOKEN_TTL_SECONDS
-        await cache_set(cache_key, "1", ttl)
+        if is_revoked and is_redis_available():
+            cache_key = RedisKeys.revoked_token(jti)
+            # TTL matches access token lifetime to auto-cleanup
+            ttl = settings.redis.revoked_token_ttl_seconds
+            await cache_set(cache_key, "1", ttl)
         logger.debug(f"Cached revoked token {jti[:8]}... with TTL {ttl}s")
 
     return is_revoked
@@ -302,7 +303,7 @@ async def cache_revoked_token(jti: str, ttl_seconds: int = None) -> bool:
         return False
 
     cache_key = RedisKeys.revoked_token(jti)
-    ttl = ttl_seconds or settings.REDIS_REVOKED_TOKEN_TTL_SECONDS
+    ttl = ttl_seconds or settings.redis.revoked_token_ttl_seconds
     return await cache_set(cache_key, "1", ttl)
 
 
@@ -374,8 +375,7 @@ async def require_super_admin(payload: dict = Depends(verify_jwt_token)) -> dict
     scopes = payload.get("scopes", [])
     if "super_admin" not in scopes:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Super Admin role required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Super Admin role required"
         )
     return payload
 
@@ -397,8 +397,7 @@ async def require_admin(payload: dict = Depends(verify_jwt_token)) -> dict:
     scopes = payload.get("scopes", [])
     if "admin" not in scopes and "super_admin" not in scopes:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin role required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required"
         )
     return payload
 
@@ -420,8 +419,7 @@ async def require_ordertaker(payload: dict = Depends(verify_jwt_token)) -> dict:
     scopes = payload.get("scopes", [])
     if not any(role in scopes for role in ["ordertaker", "admin", "super_admin"]):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Ordertaker role required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Ordertaker role required"
         )
     return payload
 
@@ -443,8 +441,7 @@ async def require_requester(payload: dict = Depends(verify_jwt_token)) -> dict:
     scopes = payload.get("scopes", [])
     if not any(role in scopes for role in ["requester", "admin", "super_admin"]):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Requester role required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Requester role required"
         )
     return payload
 
@@ -466,8 +463,7 @@ async def require_auditor(payload: dict = Depends(verify_jwt_token)) -> dict:
     scopes = payload.get("scopes", [])
     if not any(role in scopes for role in ["auditor", "admin", "super_admin"]):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Auditor role required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Auditor role required"
         )
     return payload
 
@@ -491,12 +487,14 @@ async def require_requester_or_admin(payload: dict = Depends(verify_jwt_token)) 
     if not any(role in scopes for role in ["requester", "admin", "super_admin"]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Requester or Admin role required"
+            detail="Requester or Admin role required",
         )
     return payload
 
 
-async def require_ordertaker_or_admin(payload: dict = Depends(verify_jwt_token)) -> dict:
+async def require_ordertaker_or_admin(
+    payload: dict = Depends(verify_jwt_token),
+) -> dict:
     """
     Require Ordertaker or Admin role (or Super Admin).
     Used for endpoints accessible to ordertakers and administrators.
@@ -514,7 +512,7 @@ async def require_ordertaker_or_admin(payload: dict = Depends(verify_jwt_token))
     if not any(role in scopes for role in ["ordertaker", "admin", "super_admin"]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Ordertaker or Admin role required"
+            detail="Ordertaker or Admin role required",
         )
     return payload
 
@@ -537,12 +535,14 @@ async def require_auditor_or_admin(payload: dict = Depends(verify_jwt_token)) ->
     if not any(role in scopes for role in ["auditor", "admin", "super_admin"]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Auditor or Admin role required"
+            detail="Auditor or Admin role required",
         )
     return payload
 
 
-async def require_ordertaker_auditor_or_admin(payload: dict = Depends(verify_jwt_token)) -> dict:
+async def require_ordertaker_auditor_or_admin(
+    payload: dict = Depends(verify_jwt_token),
+) -> dict:
     """
     Require Ordertaker, Auditor, or Admin role (or Super Admin).
     Used for endpoints accessible to ordertakers, auditors, and administrators.
@@ -557,15 +557,19 @@ async def require_ordertaker_auditor_or_admin(payload: dict = Depends(verify_jwt
         HTTPException: 403 if user doesn't have ordertaker, auditor, admin, or super_admin scope
     """
     scopes = payload.get("scopes", [])
-    if not any(role in scopes for role in ["ordertaker", "auditor", "admin", "super_admin"]):
+    if not any(
+        role in scopes for role in ["ordertaker", "auditor", "admin", "super_admin"]
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Ordertaker, Auditor, or Admin role required"
+            detail="Ordertaker, Auditor, or Admin role required",
         )
     return payload
 
 
-async def require_requester_ordertaker_or_admin(payload: dict = Depends(verify_jwt_token)) -> dict:
+async def require_requester_ordertaker_or_admin(
+    payload: dict = Depends(verify_jwt_token),
+) -> dict:
     """
     Require Requester, Ordertaker, or Admin role (or Super Admin).
     Used for endpoints accessible to requesters, ordertakers, and administrators.
@@ -580,10 +584,12 @@ async def require_requester_ordertaker_or_admin(payload: dict = Depends(verify_j
         HTTPException: 403 if user doesn't have requester, ordertaker, admin, or super_admin scope
     """
     scopes = payload.get("scopes", [])
-    if not any(role in scopes for role in ["requester", "ordertaker", "admin", "super_admin"]):
+    if not any(
+        role in scopes for role in ["requester", "ordertaker", "admin", "super_admin"]
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Requester, Ordertaker, or Admin role required"
+            detail="Requester, Ordertaker, or Admin role required",
         )
     return payload
 
@@ -648,7 +654,7 @@ def create_access_token_with_scopes(
         to_encode["scopes"] = scopes
 
     expire = datetime.now(pytz.timezone("Africa/Cairo")) + timedelta(
-        minutes=expires_delta or settings.SESSION_ACCESS_TOKEN_MINUTES
+        minutes=expires_delta or settings.session.access_token_minutes
     )
     to_encode.update({"exp": expire})
 

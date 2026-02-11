@@ -9,13 +9,13 @@ while APScheduler continues to handle job scheduling.
 import sys
 import os
 from celery import Celery
-from settings import settings
+from core.config import settings
 
 # Create Celery app instance
 celery_app = Celery(
     "meal_request",
-    broker=settings.CELERY_BROKER_URL,
-    backend=settings.CELERY_RESULT_BACKEND,
+    broker=settings.celery.broker_url,
+    backend=settings.celery.result_backend,
     include=[
         "tasks.email",
         "tasks.attendance",

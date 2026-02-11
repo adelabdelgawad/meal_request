@@ -18,7 +18,7 @@ from typing import Any, Dict, Optional
 
 import pytz
 
-from settings import settings
+from core.config import settings
 
 # Context variable for correlation ID (defined early for use in CorrelationIdFilter)
 try:
@@ -62,23 +62,23 @@ class ColoredFormatter(logging.Formatter):
 
     # ANSI color codes
     COLORS = {
-        'DEBUG': '\033[36m',     # Cyan
-        'INFO': '\033[32m',      # Green
-        'WARNING': '\033[33m',   # Yellow
-        'ERROR': '\033[31m',     # Red
-        'CRITICAL': '\033[35m',  # Magenta
+        "DEBUG": "\033[36m",  # Cyan
+        "INFO": "\033[32m",  # Green
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",  # Red
+        "CRITICAL": "\033[35m",  # Magenta
     }
-    RESET = '\033[0m'
-    BOLD = '\033[1m'
-    DIM = '\033[2m'
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record with colors."""
         # Get color for this level
-        color = self.COLORS.get(record.levelname, '')
+        color = self.COLORS.get(record.levelname, "")
 
         # Format timestamp
-        timestamp = datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = datetime.fromtimestamp(record.created).strftime("%Y-%m-%d %H:%M:%S")
 
         # Build the log message
         level_str = f"{color}{record.levelname:8}{self.RESET}"
@@ -175,13 +175,11 @@ def setup_logging(
         log_file: Optional log file path
     """
     # Get configuration from settings or use provided parameters
-    log_level = log_level or settings.LOG_LEVEL
+    log_level = log_level or settings.log_level
     enable_json_logs = (
-        enable_json_logs
-        if enable_json_logs is not None
-        else settings.ENABLE_JSON_LOGS
+        enable_json_logs if enable_json_logs is not None else settings.enable_json_logs
     )
-    log_file = log_file or settings.LOG_FILE
+    log_file = log_file or settings.log_file
 
     # Create log directory if needed
     if log_file:
@@ -375,9 +373,7 @@ def log_execution(
                 log_data["error"] = str(e)
                 log_data["error_type"] = type(e).__name__
 
-                _logger.error(
-                    f"Error in {func_name}", extra=log_data, exc_info=True
-                )
+                _logger.error(f"Error in {func_name}", extra=log_data, exc_info=True)
                 raise
 
         @functools.wraps(func)
@@ -418,9 +414,7 @@ def log_execution(
                 log_data["error"] = str(e)
                 log_data["error_type"] = type(e).__name__
 
-                _logger.error(
-                    f"Error in {func_name}", extra=log_data, exc_info=True
-                )
+                _logger.error(f"Error in {func_name}", extra=log_data, exc_info=True)
                 raise
 
         if asyncio.iscoroutinefunction(func):

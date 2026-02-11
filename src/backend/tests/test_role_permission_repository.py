@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from api.repositories.role_permission_repository import RolePermissionRepository
 from core.exceptions import NotFoundError
-from db.models import Role, User
+from db.model import Role, User
 
 
 @pytest.fixture

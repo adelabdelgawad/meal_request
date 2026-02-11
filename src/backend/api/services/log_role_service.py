@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.repositories.log_role_repository import LogRoleRepository
 from api.schemas.log_role_schemas import LogRoleQuery
-from db.models import LogRole
+from db.model import LogRole
 
 logger = logging.getLogger(__name__)
 

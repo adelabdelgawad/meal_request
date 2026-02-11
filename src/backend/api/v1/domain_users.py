@@ -7,7 +7,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import get_session
+from db.database import get_maria_session as get_session
 from api.schemas import (
     DomainUserCreate,
     DomainUserListResponse,

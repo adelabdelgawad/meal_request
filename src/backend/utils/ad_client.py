@@ -35,9 +35,13 @@ from ldap3 import ALL, SIMPLE, Connection, Server
 from ldap3.core.exceptions import LDAPException
 from starlette.concurrency import run_in_threadpool
 
-from settings import settings
+from core.config import settings
 from utils.app_schemas import UserAttributes
-from utils.circuit_breaker import CircuitBreaker, CircuitBreakerConfig, CircuitBreakerError
+from utils.circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerConfig,
+    CircuitBreakerError,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -46,21 +50,25 @@ logger = logging.getLogger(__name__)
 # Custom exceptions
 class ADAuthError(Exception):
     """Base exception for AD authentication errors."""
+
     pass
 
 
 class ADAuthTimeout(ADAuthError):
     """Raised when AD authentication times out."""
+
     pass
 
 
 class ADAuthUnavailable(ADAuthError):
     """Raised when AD is unavailable (circuit breaker open)."""
+
     pass
 
 
 class ADAuthFailed(ADAuthError):
     """Raised when authentication fails (invalid credentials)."""
+
     pass
 
 
@@ -89,7 +97,7 @@ class ADAuthClient:
         self,
         config: Optional[ADConfig] = None,
         max_concurrent: int = 20,
-        circuit_breaker_config: Optional[CircuitBreakerConfig] = None
+        circuit_breaker_config: Optional[CircuitBreakerConfig] = None,
     ):
         """
         Initialize AD client.
@@ -100,11 +108,11 @@ class ADAuthClient:
             circuit_breaker_config: Circuit breaker configuration
         """
         self.config = config or ADConfig(
-            domain=settings.AD_DOMAIN,
-            server=settings.AD_SERVER,
-            connect_timeout=getattr(settings, 'AD_CONNECT_TIMEOUT', 3.0),
-            receive_timeout=getattr(settings, 'AD_READ_TIMEOUT', 3.0),
-            overall_timeout=getattr(settings, 'AD_OVERALL_TIMEOUT', 5.0),
+            domain=settings.ldap.domain,
+            server=settings.ldap.server,
+            connect_timeout=settings.ldap.connect_timeout,
+            receive_timeout=settings.ldap.read_timeout,
+            overall_timeout=settings.ldap.overall_timeout,
         )
 
         # Concurrency limiter
@@ -112,9 +120,7 @@ class ADAuthClient:
 
         # Circuit breaker
         cb_config = circuit_breaker_config or CircuitBreakerConfig(
-            failure_threshold=5,
-            success_threshold=2,
-            timeout_seconds=30.0
+            failure_threshold=5, success_threshold=2, timeout_seconds=30.0
         )
         self._circuit_breaker = CircuitBreaker("ad_auth", cb_config)
 
@@ -126,9 +132,7 @@ class ADAuthClient:
         )
 
     async def authenticate(
-        self,
-        username: str,
-        password: str
+        self, username: str, password: str
     ) -> Optional[UserAttributes]:
         """
         Authenticate user against Active Directory (non-blocking).
@@ -156,9 +160,7 @@ class ADAuthClient:
             try:
                 # Use circuit breaker
                 result = await self._circuit_breaker.call(
-                    self._authenticate_with_timeout,
-                    username,
-                    password
+                    self._authenticate_with_timeout, username, password
                 )
                 return result
 
@@ -177,20 +179,20 @@ class ADAuthClient:
 
             except ADAuthFailed:
                 # Invalid credentials - not an error, just failed auth
-                logger.info(f"Authentication failed for user '{username}' (invalid credentials)")
+                logger.info(
+                    f"Authentication failed for user '{username}' (invalid credentials)"
+                )
                 return None
 
             except Exception as e:
                 logger.error(
                     f"Unexpected error during AD authentication for '{username}': {e}",
-                    exc_info=True
+                    exc_info=True,
                 )
                 raise ADAuthError(f"AD authentication error: {str(e)}") from e
 
     async def _authenticate_with_timeout(
-        self,
-        username: str,
-        password: str
+        self, username: str, password: str
     ) -> Optional[UserAttributes]:
         """
         Authenticate with overall timeout wrapper.
@@ -208,7 +210,7 @@ class ADAuthClient:
         try:
             return await asyncio.wait_for(
                 self._authenticate_sync_offloaded(username, password),
-                timeout=self.config.overall_timeout
+                timeout=self.config.overall_timeout,
             )
         except asyncio.TimeoutError:
             logger.error(
@@ -218,9 +220,7 @@ class ADAuthClient:
             raise
 
     async def _authenticate_sync_offloaded(
-        self,
-        username: str,
-        password: str
+        self, username: str, password: str
     ) -> Optional[UserAttributes]:
         """
         Offload synchronous AD bind to threadpool.
@@ -238,9 +238,7 @@ class ADAuthClient:
         """
         # Offload sync operation to threadpool
         authenticated = await run_in_threadpool(
-            self._sync_authenticate,
-            username,
-            password
+            self._sync_authenticate, username, password
         )
 
         if not authenticated:
@@ -249,6 +247,7 @@ class ADAuthClient:
         # Fetch user attributes (using async bonsai client if available)
         try:
             from utils.ldap import get_user_attributes
+
             user_attrs = await get_user_attributes(username)
             return user_attrs
         except Exception as e:
@@ -258,10 +257,7 @@ class ADAuthClient:
             )
             # Return minimal attributes if fetch fails
             return UserAttributes(
-                display_name=username,
-                mail=None,
-                telephone=None,
-                title=None
+                display_name=username, mail=None, telephone=None, title=None
             )
 
     def _sync_authenticate(self, username: str, password: str) -> bool:
@@ -286,7 +282,7 @@ class ADAuthClient:
                 port=self.config.port,
                 use_ssl=self.config.use_ssl,
                 get_info=ALL,
-                connect_timeout=self.config.connect_timeout
+                connect_timeout=self.config.connect_timeout,
             )
 
             # Create connection with receive timeout
@@ -296,7 +292,7 @@ class ADAuthClient:
                 password=password,
                 authentication=SIMPLE,
                 auto_bind=False,  # Manual bind for better error handling
-                receive_timeout=self.config.receive_timeout
+                receive_timeout=self.config.receive_timeout,
             )
 
             # Perform bind (this is the blocking operation)
@@ -307,8 +303,7 @@ class ADAuthClient:
                 return True
             else:
                 logger.info(
-                    f"AD bind failed for user '{username}': "
-                    f"{connection.result}"
+                    f"AD bind failed for user '{username}': {connection.result}"
                 )
                 return False
 
@@ -320,8 +315,7 @@ class ADAuthClient:
 
         except Exception as e:
             logger.error(
-                f"Unexpected error in sync AD bind for '{username}': {e}",
-                exc_info=True
+                f"Unexpected error in sync AD bind for '{username}': {e}", exc_info=True
             )
             raise ADAuthError(f"AD bind error: {str(e)}") from e
 
@@ -342,13 +336,15 @@ class ADAuthClient:
                     "connect": self.config.connect_timeout,
                     "receive": self.config.receive_timeout,
                     "overall": self.config.overall_timeout,
-                }
+                },
             },
             "concurrency": {
                 "max": self._semaphore._value,
-                "available": self._semaphore._value - len(self._semaphore._waiters) if self._semaphore._waiters else self._semaphore._value,
+                "available": self._semaphore._value - len(self._semaphore._waiters)
+                if self._semaphore._waiters
+                else self._semaphore._value,
             },
-            "circuit_breaker": self._circuit_breaker.get_state()
+            "circuit_breaker": self._circuit_breaker.get_state(),
         }
 
 

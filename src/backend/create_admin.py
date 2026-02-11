@@ -24,7 +24,7 @@ import sys
 from typing import Optional
 
 from api.services import RoleService, UserService
-from db.maria_database import get_maria_session
+from db.database import get_maria_session
 
 # Setup logging
 logging.basicConfig(

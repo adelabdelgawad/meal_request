@@ -6,20 +6,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.repositories.page_repository import PageRepository
 from core.exceptions import ConflictError, NotFoundError, ValidationError
-from db.models import Page
+from db.model import Page
 from utils.icon_validation import validate_icon
 
 
 class PageService:
     """Service for page management operations."""
 
-    def __init__(self):
+    def __init__(self, session: AsyncSession):
         """Initialize service."""
-        self._repo = PageRepository()
+        self.session = session
+        self._repo = PageRepository(session)
 
     async def create_page(
         self,
-        session: AsyncSession,
         name_en: str,
         name_ar: str,
         description_en: Optional[str] = None,
@@ -36,7 +36,7 @@ class PageService:
     ) -> Page:
         """Create a new page with bilingual support and navigation fields."""
         # Check if page exists with same English name
-        existing = await self._repo.get_by_name_en(session, name_en)
+        existing = await self._repo.get_by_name_en(name_en)
         if existing:
             raise ConflictError(entity="Page", field="name_en", value=name_en)
 
@@ -61,31 +61,30 @@ class PageService:
             parent_id=parent_id,
             key=key,
         )
-        return await self._repo.create(session, page)
+        return await self._repo.create(page)
 
-    async def get_page(self, session: AsyncSession, page_id: int) -> Page:
+    async def get_page(self, page_id: int) -> Page:
         """Get a page by ID."""
-        page = await self._repo.get_by_id(session, page_id)
+        page = await self._repo.get_by_id(page_id)
         if not page:
             raise NotFoundError(entity="Page", identifier=page_id)
         return page
 
-    async def get_page_by_name(self, session: AsyncSession, name: str) -> Page:
+    async def get_page_by_name(self, name: str) -> Page:
         """Get a page by name."""
-        page = await self._repo.get_by_name(session, name)
+        page = await self._repo.get_by_name(name)
         if not page:
             raise NotFoundError(entity="Page", identifier=name)
         return page
 
     async def list_pages(
-        self, session: AsyncSession, page: int = 1, per_page: int = 25
+        self, page: int = 1, per_page: int = 25
     ) -> Tuple[List[Page], int]:
         """List pages with pagination."""
-        return await self._repo.list(session, page=page, per_page=per_page)
+        return await self._repo.list(page=page, per_page=per_page)
 
     async def update_page(
         self,
-        session: AsyncSession,
         page_id: int,
         name_en: Optional[str] = None,
         name_ar: Optional[str] = None,
@@ -104,7 +103,7 @@ class PageService:
 
         # If name_en is being updated, check for conflicts
         if name_en is not None:
-            existing = await self._repo.get_by_name_en(session, name_en)
+            existing = await self._repo.get_by_name_en(name_en)
             if existing and existing.id != page_id:
                 raise ConflictError(entity="Page", field="name_en", value=name_en)
             update_data["name_en"] = name_en
@@ -137,35 +136,29 @@ class PageService:
                 raise ValidationError(message=error_msg, field="icon")
             update_data["icon"] = icon
 
-        return await self._repo.update(session, page_id, update_data)
+        return await self._repo.update(page_id, update_data)
 
-    async def delete_page(self, session: AsyncSession, page_id: int) -> None:
+    async def delete_page(self, page_id: int) -> None:
         """Delete a page."""
-        await self._repo.delete(session, page_id)
+        await self._repo.delete(page_id)
 
-    async def get_all_pages(self, session: AsyncSession) -> Optional[List[Page]]:
+    async def get_all_pages(self) -> Optional[List[Page]]:
         """
         Get all available pages for super admin.
-
-        Args:
-            session: Database session
 
         Returns:
             List of all pages, or None if none found
         """
-        return await self._repo.get_all(session)
+        return await self._repo.get_all()
 
-    async def get_pages_by_account(
-        self, session: AsyncSession, account_id: int
-    ) -> Optional[List[Page]]:
+    async def get_pages_by_account(self, account_id: int) -> Optional[List[Page]]:
         """
         Get pages accessible by a user based on their role permissions.
 
         Args:
-            session: Database session
             account_id: User ID (UUID)
 
         Returns:
             List of pages accessible to the user, or None if none found
         """
-        return await self._repo.get_pages_by_account(session, account_id)
+        return await self._repo.get_pages_by_account(account_id)

@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.services.hris_service import HRISService
-from db.models import User, SecurityUser, Employee
+from db.model import User, SecurityUser, Employee
 
 
 class TestHRISSyncSkipsManualUsers:
@@ -342,7 +342,7 @@ class TestMixedUserScenarios:
 @pytest.fixture
 async def session():
     """Provide async database session for tests."""
-    from db.maria_database import DatabaseSessionLocal
+    from db.database import DatabaseSessionLocal
 
     async with DatabaseSessionLocal() as session:
         yield session

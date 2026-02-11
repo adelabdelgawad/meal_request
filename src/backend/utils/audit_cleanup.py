@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import (
+from db.model import (
     LogAuthentication,
     LogConfiguration,
     LogMealRequest,

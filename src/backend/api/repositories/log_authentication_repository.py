@@ -7,15 +7,15 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import DatabaseError, NotFoundError
-from db.models import LogAuthentication
+from db.model import LogAuthentication
+from .base import BaseRepository
 from api.schemas.log_authentication_schemas import LogAuthenticationCreate
 
 
-class LogAuthenticationRepository:
+class LogAuthenticationRepository(BaseRepository[LogAuthentication]):
     """Repository for LogAuthentication entity."""
 
-    def __init__(self):
-        pass
+        super().__init__(session)
 
     async def create(
         self, session: AsyncSession, log_data: LogAuthenticationCreate
@@ -43,11 +43,11 @@ class LogAuthenticationRepository:
                 device_fingerprint=log_data.device_fingerprint,
                 result=log_data.result,
             )
-            session.add(log)
-            await session.flush()
+            self.session.add(log)
+            await self.session.flush()
             return log
         except Exception as e:
-            await session.rollback()
+            await self.session.rollback()
             raise DatabaseError(f"Failed to create authentication log: {str(e)}")
 
     async def get_by_id(
@@ -63,7 +63,7 @@ class LogAuthenticationRepository:
         Returns:
             LogAuthentication object or None if not found
         """
-        result = await session.execute(
+        result = await self.session.execute(
             select(LogAuthentication).where(LogAuthentication.id == log_id)
         )
         return result.scalar_one_or_none()
@@ -116,12 +116,12 @@ class LogAuthenticationRepository:
 
         # Count total
         count_query = select(func.count()).select_from(query.subquery())
-        count_result = await session.execute(count_query)
+        count_result = await self.session.execute(count_query)
         total = count_result.scalar() or 0
 
         # Paginate
         offset = calculate_offset(page, per_page)
-        result = await session.execute(query.offset(offset).limit(per_page))
+        result = await self.session.execute(query.offset(offset).limit(per_page))
         return list(result.scalars().all()), total
 
     async def get_recent(
@@ -145,10 +145,10 @@ class LogAuthenticationRepository:
 
         query = query.order_by(LogAuthentication.timestamp.desc()).limit(limit)
 
-        result = await session.execute(query)
+        result = await self.session.execute(query)
         return list(result.scalars().all())
 
-    async def delete(self, session: AsyncSession, log_id: str) -> None:
+    async def delete(self, log_id: str) -> None:
         """
         Delete an authentication log.
 
@@ -159,9 +159,9 @@ class LogAuthenticationRepository:
         Raises:
             NotFoundError: If log not found
         """
-        log = await self.get_by_id(session, log_id)
+        log = await self.get_by_id(log_id)
         if not log:
-            raise NotFoundError(entity="LogAuthentication", identifier=log_id)
+            raise NotFoundError(f"LogAuthentication with ID {log_id} not found")
 
-        await session.delete(log)
-        await session.flush()
+        await self.session.delete(log)
+        await self.session.flush()

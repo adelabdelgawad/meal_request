@@ -4,7 +4,7 @@ from typing import AsyncGenerator
 from urllib.parse import parse_qs, unquote, urlparse
 
 from dotenv import load_dotenv
-from settings import settings
+from core.config import settings
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
@@ -21,7 +21,7 @@ def convert_pyodbc_to_aioodbc(url: str) -> str:
         return url
 
     # If already using aioodbc, return as-is
-    if 'aioodbc' in url:
+    if "aioodbc" in url:
         return url
 
     # Parse the URL to extract components
@@ -29,13 +29,13 @@ def convert_pyodbc_to_aioodbc(url: str) -> str:
 
     # Extract driver from query string
     query_params = parse_qs(parsed.query)
-    driver = query_params.get('driver', ['ODBC Driver 17 for SQL Server'])[0]
+    driver = query_params.get("driver", ["ODBC Driver 17 for SQL Server"])[0]
 
     # Decode username and password (they may be URL-encoded)
-    username = unquote(parsed.username) if parsed.username else ''
-    password = unquote(parsed.password) if parsed.password else ''
-    host = parsed.hostname or ''
-    database = parsed.path.lstrip('/') if parsed.path else ''
+    username = unquote(parsed.username) if parsed.username else ""
+    password = unquote(parsed.password) if parsed.password else ""
+    host = parsed.hostname or ""
+    database = parsed.path.lstrip("/") if parsed.path else ""
 
     # Build ODBC connection string
     odbc_params = (
@@ -52,9 +52,9 @@ def convert_pyodbc_to_aioodbc(url: str) -> str:
     return f"mssql+aioodbc:///?odbc_connect={encoded_params}"
 
 
-if settings.HRIS_URL:
+if settings.database.hris_url:
     # Convert pyodbc URL to aioodbc for async support
-    SQL_DSN = convert_pyodbc_to_aioodbc(settings.HRIS_URL)
+    SQL_DSN = convert_pyodbc_to_aioodbc(settings.database.hris_url)
 else:
     # Fallback to individual environment variables
     DRIVER = os.getenv("HRIS_DB_DRIVER", "ODBC Driver 17 for SQL Server")
@@ -96,10 +96,10 @@ def _get_hris_engine():
         _HRIS_ENGINE = create_async_engine(
             SQL_DSN,
             echo=False,
-            pool_pre_ping=True,      # Verify connections before use
-            pool_recycle=3600,        # Recycle connections hourly (1 hour)
-            pool_size=5,              # Base pool size
-            max_overflow=10,          # Additional connections when needed
+            pool_pre_ping=True,  # Verify connections before use
+            pool_recycle=3600,  # Recycle connections hourly (1 hour)
+            pool_size=5,  # Base pool size
+            max_overflow=10,  # Additional connections when needed
         )
     return _HRIS_ENGINE
 
@@ -142,13 +142,15 @@ async def dispose_hris_engine():
 # SYNCHRONOUS HRIS SESSIONS FOR CELERY TASKS
 # ============================================================================
 
+
 def _convert_aioodbc_to_pyodbc(aioodbc_url: str) -> str:
     """Convert aioodbc URL back to pyodbc for synchronous operations."""
     # aioodbc URLs are complex, extract the ODBC connection string
-    if 'odbc_connect=' in aioodbc_url:
+    if "odbc_connect=" in aioodbc_url:
         # Parse the encoded connection string
         import urllib.parse
-        query_part = aioodbc_url.split('odbc_connect=')[1]
+
+        query_part = aioodbc_url.split("odbc_connect=")[1]
         odbc_string = urllib.parse.unquote_plus(query_part)
         # Build pyodbc DSN from ODBC connection string
         return f"mssql+pyodbc:///?odbc_connect={urllib.parse.quote_plus(odbc_string)}"
@@ -165,7 +167,9 @@ def _get_sync_hris_engine():
     if _SYNC_HRIS_ENGINE is None:
         # Convert aioodbc URL to pyodbc for sync operations
         sync_dsn = _convert_aioodbc_to_pyodbc(SQL_DSN)
-        _SYNC_HRIS_ENGINE = create_engine(sync_dsn, echo=False, pool_size=5, max_overflow=10)
+        _SYNC_HRIS_ENGINE = create_engine(
+            sync_dsn, echo=False, pool_size=5, max_overflow=10
+        )
     return _SYNC_HRIS_ENGINE
 
 

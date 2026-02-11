@@ -9,14 +9,15 @@ from datetime import datetime
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import LogUser
+from db.model import LogUser
+from .base import BaseRepository
 from api.schemas.log_user_schemas import LogUserCreate
 
 
-class LogUserRepository:
+class LogUserRepository(BaseRepository[LogUser]):
     """Repository for user management audit log operations."""
 
-    async def create(self, session: AsyncSession, log_data: LogUserCreate) -> LogUser:
+    async def create(self, log_data: LogUserCreate) -> LogUser:
         """
         Create a new user management audit log entry.
 
@@ -36,12 +37,12 @@ class LogUserRepository:
             new_value=log_data.new_value,
             result=log_data.result,
         )
-        session.add(log_entry)
-        await session.commit()
-        await session.refresh(log_entry)
+        self.session.add(log_entry)
+        await self.session.commit()
+        await self.session.refresh(log_entry)
         return log_entry
 
-    async def get_by_id(self, session: AsyncSession, log_id: str) -> Optional[LogUser]:
+    async def get_by_id(self, log_id: str) -> Optional[LogUser]:
         """
         Get a user management audit log entry by ID.
 
@@ -53,7 +54,7 @@ class LogUserRepository:
             Log entry if found, None otherwise
         """
         query = select(LogUser).where(LogUser.id == log_id)
-        result = await session.execute(query)
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
     async def query(
@@ -99,7 +100,7 @@ class LogUserRepository:
 
         # Get total count
         count_query = select(func.count()).select_from(query.subquery())
-        total_result = await session.execute(count_query)
+        total_result = await self.session.execute(count_query)
         total = total_result.scalar() or 0
 
         # Apply pagination and ordering
@@ -107,7 +108,7 @@ class LogUserRepository:
         query = query.offset((page - 1) * per_page).limit(per_page)
 
         # Execute query
-        result = await session.execute(query)
+        result = await self.session.execute(query)
         logs = result.scalars().all()
 
         return list(logs), total

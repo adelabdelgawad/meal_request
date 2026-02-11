@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.repositories.log_replication_repository import LogReplicationRepository
 from api.schemas.log_replication_schemas import LogReplicationCreate
-from db.models import LogReplication
+from db.model import LogReplication
 
 logger = logging.getLogger(__name__)
 

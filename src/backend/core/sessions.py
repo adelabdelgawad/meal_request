@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple
 import pytz
 from jose import JWTError, jwt
 
-from settings import settings
+from core.config import settings
 
 
 def generate_uuid() -> str:
@@ -40,7 +40,7 @@ def issue_access_token(
         Tuple of (access_token, jti)
     """
     if expires_delta is None:
-        expires_delta = timedelta(minutes=settings.SESSION_ACCESS_TOKEN_MINUTES)
+        expires_delta = timedelta(minutes=settings.session.access_token_minutes)
 
     now = datetime.now(pytz.timezone("Africa/Cairo"))
     expire = now + expires_delta
@@ -57,7 +57,7 @@ def issue_access_token(
     }
 
     token = jwt.encode(
-        payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        payload, settings.sec.jwt_secret_key, algorithm=settings.sec.jwt_algorithm
     )
     return token, jti
 
@@ -74,7 +74,7 @@ def verify_access_token(token: str) -> Optional[dict]:
     """
     try:
         payload = jwt.decode(
-            token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+            token, settings.sec.jwt_secret_key, algorithms=[settings.sec.jwt_algorithm]
         )
         # Validate token type
         if payload.get("type") != "access":
@@ -107,7 +107,7 @@ def create_refresh_cookie_value(
         Tuple of (refresh_token, jti, expires_at)
     """
     if expires_delta is None:
-        expires_delta = timedelta(days=settings.SESSION_REFRESH_LIFETIME_DAYS)
+        expires_delta = timedelta(days=settings.session.refresh_lifetime_days)
 
     now = datetime.now(pytz.timezone("Africa/Cairo"))
     expires_at = now + expires_delta
@@ -122,11 +122,11 @@ def create_refresh_cookie_value(
         "type": "refresh",
         "scopes": scopes or ["user"],
         "roles": roles or ["user"],
-        "locale": locale or settings.DEFAULT_LOCALE,
+        "locale": locale or settings.locale.default_locale,
     }
 
     token = jwt.encode(
-        payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        payload, settings.sec.jwt_secret_key, algorithm=settings.sec.jwt_algorithm
     )
     return token, jti, expires_at
 
@@ -143,7 +143,7 @@ def verify_refresh_token(token: str) -> Optional[dict]:
     """
     try:
         payload = jwt.decode(
-            token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+            token, settings.sec.jwt_secret_key, algorithms=[settings.sec.jwt_algorithm]
         )
         # Validate token type
         if payload.get("type") != "refresh":

@@ -27,7 +27,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.services import UserService
-from db.maria_database import get_maria_session
+from db.database import get_maria_session
 
 # Setup logging
 logging.basicConfig(

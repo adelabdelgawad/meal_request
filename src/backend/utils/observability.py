@@ -37,6 +37,7 @@ try:
     from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
     OPENTELEMETRY_AVAILABLE = True
 except ImportError:
     trace = None
@@ -71,7 +72,9 @@ except ImportError:
     pass
 
 
-def _get_or_create_metric(metric_class, name: str, description: str, labelnames: list = None, **kwargs):
+def _get_or_create_metric(
+    metric_class, name: str, description: str, labelnames: list = None, **kwargs
+):
     """
     Get an existing metric or create a new one.
 
@@ -85,7 +88,7 @@ def _get_or_create_metric(metric_class, name: str, description: str, labelnames:
 
     # Check if metric already exists in registry
     for collector in list(REGISTRY._names_to_collectors.values()):
-        if hasattr(collector, '_name') and collector._name == name:
+        if hasattr(collector, "_name") and collector._name == name:
             return collector
 
     # Create new metric
@@ -99,7 +102,7 @@ def _get_or_create_metric(metric_class, name: str, description: str, labelnames:
         if "Duplicated timeseries" in str(e):
             # Try to get the existing metric
             for collector in list(REGISTRY._names_to_collectors.values()):
-                if hasattr(collector, '_name') and collector._name == name:
+                if hasattr(collector, "_name") and collector._name == name:
                     return collector
             # If we still can't find it, log and return None to avoid crashes
             logger.warning(f"Failed to create or retrieve metric '{name}': {e}")
@@ -122,9 +125,12 @@ def setup_opentelemetry():
     # Configure OTLP exporter (send to Jaeger/Zipkin/ Tempo)
     otlp_exporter = OTLPSpanExporter(
         endpoint=os.getenv(
-            "OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"
+            "OTEL_EXPORTER_OTLP_ENDPOINT",
+            settings.otel_exporter_otlp_endpoint or "http://localhost:4317",
         ),
-        headers=os.getenv("OTEL_EXPORTER_OTLP_HEADERS", ""),
+        headers=os.getenv(
+            "OTEL_EXPORTER_OTLP_HEADERS", settings.otel_exporter_otlp_headers or ""
+        ),
     )
 
     # Add span processor
@@ -404,7 +410,13 @@ if PROMETHEUS_AVAILABLE:
     )
 
 
-def record_request(request: Request, status_code: int, duration: float, request_size: int = 0, response_size: int = 0):
+def record_request(
+    request: Request,
+    status_code: int,
+    duration: float,
+    request_size: int = 0,
+    response_size: int = 0,
+):
     """Record HTTP request metrics including size and duration."""
     if not PROMETHEUS_AVAILABLE or REQUEST_COUNT is None:
         return
@@ -418,37 +430,33 @@ def record_request(request: Request, status_code: int, duration: float, request_
         status_code=status_code,
     ).inc()
 
-    REQUEST_DURATION.labels(
-        method=request.method,
-        endpoint=endpoint
-    ).observe(duration)
+    REQUEST_DURATION.labels(method=request.method, endpoint=endpoint).observe(duration)
 
     if REQUEST_SIZE and request_size > 0:
-        REQUEST_SIZE.labels(
-            method=request.method,
-            endpoint=endpoint
-        ).observe(request_size)
+        REQUEST_SIZE.labels(method=request.method, endpoint=endpoint).observe(
+            request_size
+        )
 
     if RESPONSE_SIZE and response_size > 0:
-        RESPONSE_SIZE.labels(
-            method=request.method,
-            endpoint=endpoint
-        ).observe(response_size)
+        RESPONSE_SIZE.labels(method=request.method, endpoint=endpoint).observe(
+            response_size
+        )
 
 
 def _normalize_endpoint(path: str) -> str:
     """Normalize endpoint paths to reduce cardinality."""
     # Replace UUIDs and numeric IDs with placeholders
     import re
+
     # UUID pattern
     path = re.sub(
-        r'/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
-        '/{id}',
+        r"/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+        "/{id}",
         path,
-        flags=re.IGNORECASE
+        flags=re.IGNORECASE,
     )
     # Numeric ID pattern
-    path = re.sub(r'/\d+', '/{id}', path)
+    path = re.sub(r"/\d+", "/{id}", path)
     return path
 
 
@@ -576,7 +584,7 @@ def collect_system_metrics():
             memory_info = process.memory_info()
             PROCESS_MEMORY_BYTES.labels(type="rss").set(memory_info.rss)
             PROCESS_MEMORY_BYTES.labels(type="vms").set(memory_info.vms)
-            if hasattr(memory_info, 'shared'):
+            if hasattr(memory_info, "shared"):
                 PROCESS_MEMORY_BYTES.labels(type="shared").set(memory_info.shared)
 
         # Thread count
@@ -588,7 +596,7 @@ def collect_system_metrics():
             gc_stats = gc.get_stats()
             for gen in range(3):  # Python has 3 generations
                 if gen < len(gc_stats):
-                    collections = gc_stats[gen].get('collections', 0)
+                    collections = gc_stats[gen].get("collections", 0)
                     PYTHON_GC_COLLECTIONS.labels(generation=str(gen)).inc(collections)
 
     except Exception as e:
@@ -616,16 +624,16 @@ async def collect_redis_metrics():
 
         # Connected clients
         if REDIS_CONNECTED_CLIENTS:
-            REDIS_CONNECTED_CLIENTS.set(info.get('connected_clients', 0))
+            REDIS_CONNECTED_CLIENTS.set(info.get("connected_clients", 0))
 
         # Memory usage
         if REDIS_USED_MEMORY_BYTES:
-            REDIS_USED_MEMORY_BYTES.set(info.get('used_memory', 0))
+            REDIS_USED_MEMORY_BYTES.set(info.get("used_memory", 0))
 
         # Keyspace stats
         if REDIS_KEYSPACE_HITS and REDIS_KEYSPACE_MISSES:
-            hits = info.get('keyspace_hits', 0)
-            misses = info.get('keyspace_misses', 0)
+            hits = info.get("keyspace_hits", 0)
+            misses = info.get("keyspace_misses", 0)
             # These are cumulative, so we just set them
             # The rate() function in Prometheus will calculate the rate
             REDIS_KEYSPACE_HITS.inc(hits)
@@ -633,7 +641,7 @@ async def collect_redis_metrics():
 
         # Operations per second
         if REDIS_OPS_PER_SECOND:
-            ops = info.get('instantaneous_ops_per_sec', 0)
+            ops = info.get("instantaneous_ops_per_sec", 0)
             REDIS_OPS_PER_SECOND.set(ops)
 
     except Exception as e:
@@ -706,7 +714,7 @@ async def observability_middleware(request: Request, call_next):
         response.status_code,
         duration,
         request_size=request_size,
-        response_size=response_size
+        response_size=response_size,
     )
 
     # Add response headers

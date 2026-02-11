@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from api.repositories.hris_repository import HRISRepository
-from db.models import Employee, MealRequest, MealRequestLine, MealRequestLineAttendance
+from db.model import Employee, MealRequest, MealRequestLine, MealRequestLineAttendance
 from db.schemas import AttendanceRecord
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class AttendanceSyncService:
 
     def __init__(self):
         """Initialize the attendance sync service."""
-        self._hris_repo = HRISRepository()
+        self._hris_repo = HRISRepository(self.session)
 
     async def sync_sliding_window(
         self,
